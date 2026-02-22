@@ -1,143 +1,92 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
-
-interface User {
-  email: string;
-  salary: number;
-  salaryType: "hourly" | "yearly";
-}
+import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 
 export default function Profile() {
-  const [, navigate] = useLocation();
-  const [user, setUser] = useState<User>({ email: "", salary: 0, salaryType: "hourly" });
-  const [saved, setSaved] = useState(false);
+  const { data: profile, isLoading } = trpc.profile.get.useQuery();
+  const utils = trpc.useUtils();
+
+  const [name, setName] = useState("");
+  const [salaryType, setSalaryType] = useState<"hourly" | "yearly">("hourly");
+  const [salaryAmount, setSalaryAmount] = useState("");
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (!storedUser) {
-      navigate("/");
-      return;
+    if (profile) {
+      setName(profile.name || "");
+      setSalaryType(profile.salaryType);
+      setSalaryAmount(profile.salaryAmount ?? "0");
     }
-    setUser(JSON.parse(storedUser));
-  }, [navigate]);
+  }, [profile]);
+
+  const updateSalaryMutation = trpc.profile.updateSalary.useMutation({
+    onSuccess: () => { utils.profile.get.invalidate(); toast.success("Salary updated!"); },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const updateNameMutation = trpc.profile.updateName.useMutation({
+    onSuccess: () => { utils.profile.get.invalidate(); toast.success("Name updated!"); },
+    onError: (err) => toast.error(err.message),
+  });
+
+  if (isLoading) return <div style={pageStyle}><p style={{ color: "#888", textAlign: "center", paddingTop: "4rem" }}>Loading...</p></div>;
+  if (!profile) return null;
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem("user", JSON.stringify(user));
-    const allUsers: User[] = JSON.parse(localStorage.getItem("allUsers") || "[]");
-    const existingIndex = allUsers.findIndex((u) => u.email === user.email);
-    if (existingIndex >= 0) {
-      allUsers[existingIndex] = user;
-    } else {
-      allUsers.push(user);
+    const promises: Promise<any>[] = [];
+    if (name !== (profile.name || "")) promises.push(updateNameMutation.mutateAsync({ name }));
+    if (salaryType !== profile.salaryType || salaryAmount !== (profile.salaryAmount ?? "0")) {
+      promises.push(updateSalaryMutation.mutateAsync({ salaryType, salaryAmount }));
     }
-    localStorage.setItem("allUsers", JSON.stringify(allUsers));
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    if (promises.length === 0) toast.info("No changes to save.");
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    navigate("/");
-  };
-
-  const inputStyle: React.CSSProperties = {
-    width: "100%",
-    background: "oklch(0 0 0 / 0.3)",
-    border: "1px solid oklch(1 0 0 / 0.1)",
-    borderRadius: "12px",
-    padding: "14px",
-    color: "white",
-    fontFamily: "Outfit, sans-serif",
-    fontSize: "1rem",
-    marginBottom: "16px",
-  };
+  const isSaving = updateSalaryMutation.isPending || updateNameMutation.isPending;
 
   return (
-    <div>
-      <header style={{ marginBottom: "2rem", marginTop: "0.5rem" }}>
-        <h1
-          className="gold-text"
-          style={{ textAlign: "left", fontSize: "2rem", fontWeight: 800, margin: 0 }}
-        >
-          Profile
-        </h1>
-        <p style={{ textAlign: "left", marginTop: "4px", color: "oklch(1 0 0 / 0.6)" }}>
-          Manage your income settings
-        </p>
-      </header>
+    <div style={pageStyle}>
+      <h1 className="gold-text" style={{ fontSize: "1.8rem", fontWeight: 800, marginBottom: "0.25rem" }}>Profile</h1>
+      <p style={{ color: "#888", marginBottom: "2rem", fontSize: "0.9rem" }}>Update your name and salary settings.</p>
 
-      <div className="glass-panel" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
-        <p style={{ margin: "0 0 20px 0", fontSize: "0.9rem", color: "oklch(1 0 0 / 0.7)" }}>
-          Logged in as: <strong style={{ color: "oklch(0.85 0.17 85)" }}>{user.email}</strong>
-        </p>
-        <form onSubmit={handleSave}>
-          <label style={{ display: "block", marginBottom: "8px", fontSize: "0.9rem", color: "oklch(1 0 0 / 0.8)" }}>
-            Salary Type
-          </label>
-          <select
-            value={user.salaryType}
-            onChange={(e) => setUser({ ...user, salaryType: e.target.value as "hourly" | "yearly" })}
-            style={{ ...inputStyle, appearance: "none", background: "oklch(0.12 0.02 290)" }}
-          >
-            <option value="hourly">Hourly ($/hr)</option>
-            <option value="yearly">Yearly ($/yr)</option>
-          </select>
+      <div className="glass-panel" style={{ padding: "1.5rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem", paddingBottom: "1.5rem", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ width: "56px", height: "56px", borderRadius: "50%", background: "linear-gradient(135deg, #f5c518, #e8a000)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", fontWeight: 700, color: "#1a0a00" }}>
+            {(profile.name || profile.email || "?")[0].toUpperCase()}
+          </div>
+          <div>
+            <div style={{ color: "#fff", fontWeight: 600 }}>{profile.name || "No name set"}</div>
+            <div style={{ color: "#888", fontSize: "0.85rem" }}>{profile.email}</div>
+          </div>
+        </div>
 
-          <label style={{ display: "block", marginBottom: "8px", fontSize: "0.9rem", color: "oklch(1 0 0 / 0.8)" }}>
-            Amount ($)
-          </label>
-          <input
-            type="number"
-            value={user.salary}
-            onChange={(e) => setUser({ ...user, salary: Number(e.target.value) })}
-            min="0"
-            step="0.01"
-            required
-            style={inputStyle}
-          />
+        <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div>
+            <label style={labelStyle}>Display Name</label>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" style={inputStyle} />
+          </div>
 
-          <button
-            type="submit"
-            style={{
-              width: "100%",
-              marginTop: "0.5rem",
-              padding: "14px",
-              borderRadius: "12px",
-              border: "none",
-              background: saved
-                ? "oklch(0.78 0.18 155)"
-                : "linear-gradient(135deg, oklch(0.85 0.17 85), oklch(0.65 0.14 75))",
-              color: "oklch(0.1 0.02 290)",
-              fontFamily: "Outfit, sans-serif",
-              fontWeight: 700,
-              fontSize: "1rem",
-              cursor: "pointer",
-              transition: "background 0.3s",
-            }}
-          >
-            {saved ? "✓ Saved!" : "Save Settings"}
+          <div>
+            <label style={labelStyle}>Salary Type</label>
+            <select value={salaryType} onChange={(e) => setSalaryType(e.target.value as "hourly" | "yearly")} style={{ ...inputStyle, background: "oklch(0.12 0.02 290)" }}>
+              <option value="hourly">Hourly ($/hr)</option>
+              <option value="yearly">Yearly ($/yr)</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Amount ($)</label>
+            <input type="number" value={salaryAmount} onChange={(e) => setSalaryAmount(e.target.value)} min="0" step="0.01" placeholder={salaryType === "hourly" ? "e.g. 35" : "e.g. 75000"} style={inputStyle} />
+          </div>
+
+          <button type="submit" disabled={isSaving} style={{ padding: "0.875rem", borderRadius: "12px", border: "none", background: isSaving ? "rgba(245,197,24,0.4)" : "linear-gradient(135deg, oklch(0.85 0.17 85), oklch(0.65 0.14 75))", color: "oklch(0.1 0.02 290)", fontFamily: "Outfit, sans-serif", fontWeight: 700, fontSize: "1rem", cursor: isSaving ? "not-allowed" : "pointer", marginTop: "0.5rem" }}>
+            {isSaving ? "Saving..." : "Save Changes"}
           </button>
         </form>
       </div>
-
-      <button
-        onClick={handleLogout}
-        style={{
-          width: "100%",
-          padding: "14px",
-          borderRadius: "12px",
-          border: "none",
-          background: "oklch(0.65 0.22 25)",
-          color: "white",
-          fontFamily: "Outfit, sans-serif",
-          fontWeight: 700,
-          fontSize: "1rem",
-          cursor: "pointer",
-        }}
-      >
-        Logout
-      </button>
     </div>
   );
 }
+
+const pageStyle: React.CSSProperties = { padding: "1.5rem 1rem 6rem", maxWidth: "600px", margin: "0 auto" };
+const labelStyle: React.CSSProperties = { display: "block", marginBottom: "8px", fontSize: "0.9rem", color: "oklch(1 0 0 / 0.8)" };
+const inputStyle: React.CSSProperties = { width: "100%", background: "oklch(0 0 0 / 0.3)", border: "1px solid oklch(1 0 0 / 0.1)", borderRadius: "12px", padding: "14px", color: "white", fontFamily: "Outfit, sans-serif", fontSize: "1rem", boxSizing: "border-box" };

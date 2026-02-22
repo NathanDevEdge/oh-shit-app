@@ -1,31 +1,45 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { ArrowLeft } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
+
+const TIMER_ACTIVE_KEY = "toilet_timer_active";
+const TIMER_KEY = "toilet_timer_start";
 
 export default function MinigameClog() {
   const [, navigate] = useLocation();
   const [score, setScore] = useState(0);
-  const [highScore, setHighScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(30);
   const [isPlaying, setIsPlaying] = useState(false);
   const [activeMole, setActiveMole] = useState<number | null>(null);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [timerElapsed, setTimerElapsed] = useState(0);
   const gameInterval = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timerInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const isPlayingRef = useRef(false);
+  const scoreRef = useRef(0);
+
+  const submitMutation = trpc.minigames.submitScore.useMutation({
+    onSuccess: () => toast.success("Score saved to leaderboard! 🏆"),
+    onError: () => toast.error("Could not save score — are you logged in?"),
+  });
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (!user.email) {
-      navigate("/");
-      return;
+    const active = localStorage.getItem(TIMER_ACTIVE_KEY) === "true";
+    setTimerRunning(active);
+    if (active) {
+      const startTs = parseInt(localStorage.getItem(TIMER_KEY) || "0", 10);
+      const tick = () => setTimerElapsed(Math.floor((Date.now() - startTs) / 1000));
+      tick();
+      const id = setInterval(tick, 1000);
+      return () => clearInterval(id);
     }
-    const savedScore = localStorage.getItem(`clog_highscore_${user.email}`);
-    if (savedScore) setHighScore(parseInt(savedScore, 10));
     return () => {
       if (gameInterval.current) clearTimeout(gameInterval.current);
       if (timerInterval.current) clearInterval(timerInterval.current);
     };
-  }, [navigate]);
+  }, []);
 
   const popMole = () => {
     const time = Math.random() * 600 + 600;
@@ -42,27 +56,18 @@ export default function MinigameClog() {
     setActiveMole(null);
     if (timerInterval.current) clearInterval(timerInterval.current);
     if (gameInterval.current) clearTimeout(gameInterval.current);
-    setScore((prev) => {
-      if (prev > highScore) {
-        const user = JSON.parse(localStorage.getItem("user") || "{}");
-        setHighScore(prev);
-        localStorage.setItem(`clog_highscore_${user.email}`, String(prev));
-      }
-      return prev;
-    });
+    submitMutation.mutate({ gameId: "clog", score: scoreRef.current });
   };
 
   const startGame = () => {
+    scoreRef.current = 0;
     setScore(0);
     setTimeLeft(30);
     isPlayingRef.current = true;
     setIsPlaying(true);
     timerInterval.current = setInterval(() => {
       setTimeLeft((prev) => {
-        if (prev <= 1) {
-          endGame();
-          return 0;
-        }
+        if (prev <= 1) { endGame(); return 0; }
         return prev - 1;
       });
     }, 1000);
@@ -71,62 +76,34 @@ export default function MinigameClog() {
 
   const whack = (index: number) => {
     if (index === activeMole && isPlayingRef.current) {
-      setScore((s) => s + 10);
+      scoreRef.current += 10;
+      setScore(scoreRef.current);
       setActiveMole(null);
       if (gameInterval.current) clearTimeout(gameInterval.current);
       popMole();
     }
   };
 
+  const formatTime = (s: number) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <button
-        onClick={() => navigate("/timer")}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "8px",
-          alignSelf: "flex-start",
-          marginBottom: "1rem",
-          padding: "10px 18px",
-          borderRadius: "12px",
-          border: "1px solid oklch(1 0 0 / 0.1)",
-          background: "oklch(1 0 0 / 0.05)",
-          color: "white",
-          fontFamily: "Outfit, sans-serif",
-          fontWeight: 600,
-          cursor: "pointer",
-        }}
-      >
+    <div style={{ padding: "1rem 1rem 6rem", maxWidth: "600px", margin: "0 auto" }}>
+      <button onClick={() => navigate("/timer")} style={{ display: "inline-flex", alignItems: "center", gap: "8px", marginBottom: "1rem", padding: "10px 18px", borderRadius: "12px", border: "1px solid oklch(1 0 0 / 0.1)", background: "oklch(1 0 0 / 0.05)", color: "white", fontFamily: "Outfit, sans-serif", fontWeight: 600, cursor: "pointer" }}>
         <ArrowLeft size={18} /> Back to Timer
       </button>
 
-      <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-        <h1
-          className="gold-text"
-          style={{ fontSize: "2rem", fontWeight: 800, margin: "0 0 1rem 0" }}
-        >
-          Clog-A-Mole
-        </h1>
-        <div style={{ display: "flex", justifyContent: "space-around", margin: "20px 0" }}>
-          <div className="glass-panel" style={{ padding: "10px 20px" }}>
-            Score: {score}
-          </div>
-          <div
-            className="glass-panel"
-            style={{
-              padding: "10px 20px",
-              color: timeLeft <= 5 ? "oklch(0.65 0.22 25)" : "white",
-            }}
-          >
-            Time: {timeLeft}s
-          </div>
-          <div
-            className="glass-panel"
-            style={{ padding: "10px 20px", color: "oklch(0.85 0.17 85)" }}
-          >
-            High: {highScore}
-          </div>
+      {timerRunning && (
+        <div style={{ background: "rgba(245,197,24,0.12)", border: "1px solid rgba(245,197,24,0.3)", borderRadius: "10px", padding: "0.6rem 1rem", marginBottom: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.85rem" }}>
+          <span style={{ color: "#f5c518" }}>🚽 Toilet timer running</span>
+          <span style={{ color: "#f5c518", fontWeight: 700 }}>{formatTime(timerElapsed)}</span>
+        </div>
+      )}
+
+      <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+        <h1 className="gold-text" style={{ fontSize: "2rem", fontWeight: 800, margin: "0 0 1rem 0" }}>Clog-A-Mole</h1>
+        <div style={{ display: "flex", justifyContent: "space-around" }}>
+          <div className="glass-panel" style={{ padding: "10px 20px" }}>Score: {score}</div>
+          <div className="glass-panel" style={{ padding: "10px 20px", color: timeLeft <= 5 ? "oklch(0.65 0.22 25)" : "white" }}>Time: {timeLeft}s</div>
         </div>
       </div>
 

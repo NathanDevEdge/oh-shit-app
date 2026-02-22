@@ -1,31 +1,45 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { ArrowLeft } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
+
+const TIMER_ACTIVE_KEY = "toilet_timer_active";
+const TIMER_KEY = "toilet_timer_start";
 
 export default function MinigameToss() {
   const [, navigate] = useLocation();
   const [score, setScore] = useState(0);
-  const [highScore, setHighScore] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [message, setMessage] = useState("");
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [timerElapsed, setTimerElapsed] = useState(0);
   const animationRef = useRef<number | null>(null);
   const positionRef = useRef(0);
   const speedRef = useRef(2);
   const directionRef = useRef(1);
+  const scoreRef = useRef(0);
+
+  const submitMutation = trpc.minigames.submitScore.useMutation({
+    onSuccess: () => toast.success("Score saved to leaderboard! 🏆"),
+    onError: () => toast.error("Could not save score — are you logged in?"),
+  });
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (!user.email) {
-      navigate("/");
-      return;
+    const active = localStorage.getItem(TIMER_ACTIVE_KEY) === "true";
+    setTimerRunning(active);
+    if (active) {
+      const startTs = parseInt(localStorage.getItem(TIMER_KEY) || "0", 10);
+      const tick = () => setTimerElapsed(Math.floor((Date.now() - startTs) / 1000));
+      tick();
+      const id = setInterval(tick, 1000);
+      return () => clearInterval(id);
     }
-    const savedScore = localStorage.getItem(`toss_highscore_${user.email}`);
-    if (savedScore) setHighScore(parseInt(savedScore, 10));
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [navigate]);
+  }, []);
 
   const animate = () => {
     positionRef.current += speedRef.current * directionRef.current;
@@ -82,59 +96,32 @@ export default function MinigameToss() {
     } else {
       setScore((s) => {
         setMessage(`Missed! Final Score: ${s}`);
-        if (s > highScore) {
-          const user = JSON.parse(localStorage.getItem("user") || "{}");
-          setHighScore(s);
-          localStorage.setItem(`toss_highscore_${user.email}`, String(s));
-        }
+        submitMutation.mutate({ gameId: "toss", score: s });
         return s;
       });
     }
   };
 
+  const formatTime = (s: number) => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <button
-        onClick={() => navigate("/timer")}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "8px",
-          alignSelf: "flex-start",
-          marginBottom: "1rem",
-          padding: "10px 18px",
-          borderRadius: "12px",
-          border: "1px solid oklch(1 0 0 / 0.1)",
-          background: "oklch(1 0 0 / 0.05)",
-          color: "white",
-          fontFamily: "Outfit, sans-serif",
-          fontWeight: 600,
-          cursor: "pointer",
-        }}
-      >
+    <div style={{ padding: "1rem 1rem 6rem", maxWidth: "600px", margin: "0 auto" }}>
+      <button onClick={() => navigate("/timer")} style={{ display: "inline-flex", alignItems: "center", gap: "8px", marginBottom: "1rem", padding: "10px 18px", borderRadius: "12px", border: "1px solid oklch(1 0 0 / 0.1)", background: "oklch(1 0 0 / 0.05)", color: "white", fontFamily: "Outfit, sans-serif", fontWeight: 600, cursor: "pointer" }}>
         <ArrowLeft size={18} /> Back to Timer
       </button>
 
-      <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-        <h1
-          className="gold-text"
-          style={{ fontSize: "2rem", fontWeight: 800, margin: "0 0 1rem 0" }}
-        >
-          Paper Toss
-        </h1>
-        <p style={{ color: "oklch(1 0 0 / 0.6)" }}>
-          Aim for the center to land the paper in the bowl!
-        </p>
-        <div style={{ display: "flex", justifyContent: "center", gap: "20px", margin: "20px 0" }}>
-          <div className="glass-panel" style={{ padding: "10px 20px" }}>
-            Score: {score}
-          </div>
-          <div
-            className="glass-panel"
-            style={{ padding: "10px 20px", color: "oklch(0.85 0.17 85)" }}
-          >
-            High: {highScore}
-          </div>
+      {timerRunning && (
+        <div style={{ background: "rgba(245,197,24,0.12)", border: "1px solid rgba(245,197,24,0.3)", borderRadius: "10px", padding: "0.6rem 1rem", marginBottom: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.85rem" }}>
+          <span style={{ color: "#f5c518" }}>🚽 Toilet timer running</span>
+          <span style={{ color: "#f5c518", fontWeight: 700 }}>{formatTime(timerElapsed)}</span>
+        </div>
+      )}
+
+      <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+        <h1 className="gold-text" style={{ fontSize: "2rem", fontWeight: 800, margin: "0 0 0.5rem 0" }}>Paper Toss</h1>
+        <p style={{ color: "oklch(1 0 0 / 0.6)", marginBottom: "1rem" }}>Aim for the center to land the paper in the bowl!</p>
+        <div style={{ display: "flex", justifyContent: "center", gap: "20px" }}>
+          <div className="glass-panel" style={{ padding: "10px 20px" }}>Score: {score}</div>
         </div>
       </div>
 

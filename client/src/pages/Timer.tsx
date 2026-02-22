@@ -1,246 +1,156 @@
-import { useState, useEffect, useRef } from "react";
-import { useLocation, Link } from "wouter";
-import { Play, Square } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useLocation } from "wouter";
+import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 
-interface User {
-  email: string;
-  salary: number;
-  salaryType: "hourly" | "yearly";
-}
-
-interface Session {
-  earned: number;
-  duration: number;
-  date: string;
-}
+const TIMER_KEY = "toilet_timer_start";
+const TIMER_ACTIVE_KEY = "toilet_timer_active";
 
 export default function Timer() {
   const [, navigate] = useLocation();
-  const [user, setUser] = useState<User | null>(null);
-  const [isActive, setIsActive] = useState(false);
+  const { data: profile } = trpc.profile.get.useQuery();
+  const utils = trpc.useUtils();
+  const saveMutation = trpc.sessions.save.useMutation({
+    onSuccess: () => {
+      utils.sessions.myHistory.invalidate();
+      utils.sessions.leaderboard.invalidate();
+    },
+  });
+
   const [elapsed, setElapsed] = useState(0);
-  const [earned, setEarned] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // On mount, restore timer state from localStorage
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (!storedUser) {
-      navigate("/");
-      return;
+    const active = localStorage.getItem(TIMER_ACTIVE_KEY) === "true";
+    const startTs = parseInt(localStorage.getItem(TIMER_KEY) || "0", 10);
+    if (active && startTs > 0) {
+      const now = Date.now();
+      setElapsed(Math.floor((now - startTs) / 1000));
+      setIsRunning(true);
     }
-    setUser(JSON.parse(storedUser));
-  }, [navigate]);
-
-  const moneyPerSecond = () => {
-    if (!user) return 0;
-    if (user.salaryType === "hourly") return user.salary / 3600;
-    return user.salary / (365 * 24 * 3600);
-  };
-
-  const startTimer = () => {
-    setIsActive(true);
-    setElapsed(0);
-    setEarned(0);
-    intervalRef.current = setInterval(() => {
-      setElapsed((prev) => {
-        const next = prev + 1;
-        setEarned(next * moneyPerSecond());
-        return next;
-      });
-    }, 1000);
-  };
-
-  const stopTimer = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    setIsActive(false);
-
-    if (!user || elapsed === 0) return;
-    const session: Session = {
-      earned,
-      duration: elapsed,
-      date: new Date().toISOString(),
-    };
-    const history: Session[] = JSON.parse(
-      localStorage.getItem(`history_${user.email}`) || "[]"
-    );
-    history.push(session);
-    localStorage.setItem(`history_${user.email}`, JSON.stringify(history));
-  };
-
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
   }, []);
 
-  if (!user) return <div style={{ padding: "2rem" }}>Loading...</div>;
+  // Tick
+  useEffect(() => {
+    if (isRunning) {
+      intervalRef.current = setInterval(() => {
+        const startTs = parseInt(localStorage.getItem(TIMER_KEY) || "0", 10);
+        if (startTs > 0) {
+          setElapsed(Math.floor((Date.now() - startTs) / 1000));
+        }
+      }, 1000);
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [isRunning]);
+
+  const salaryPerSecond = profile
+    ? profile.salaryType === "hourly"
+      ? parseFloat(profile.salaryAmount ?? "0") / 3600
+      : parseFloat(profile.salaryAmount ?? "0") / (365 * 24 * 3600)
+    : 0;
+
+  const earned = elapsed * salaryPerSecond;
+
+  const handleStart = () => {
+    const now = Date.now();
+    localStorage.setItem(TIMER_KEY, String(now));
+    localStorage.setItem(TIMER_ACTIVE_KEY, "true");
+    setElapsed(0);
+    setIsRunning(true);
+    toast.success("Timer started! Enjoy your throne time. 👑");
+  };
+
+  const handleStop = useCallback(async () => {
+    if (!isRunning || elapsed === 0) return;
+    setIsRunning(false);
+    localStorage.removeItem(TIMER_KEY);
+    localStorage.removeItem(TIMER_ACTIVE_KEY);
+
+    const finalElapsed = elapsed;
+    const finalEarned = finalElapsed * salaryPerSecond;
+
+    saveMutation.mutate(
+      { durationSeconds: finalElapsed, earningsAmount: finalEarned.toFixed(4) },
+      {
+        onSuccess: () => {
+          toast.success(`Session saved! You earned $${finalEarned.toFixed(4)} 💰`);
+          setElapsed(0);
+        },
+        onError: () => toast.error("Failed to save session."),
+      }
+    );
+  }, [isRunning, elapsed, salaryPerSecond, saveMutation]);
+
+  const formatTime = (s: number) => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return h > 0
+      ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
+      : `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        textAlign: "center",
-        paddingTop: "1rem",
-      }}
-    >
-      <header style={{ marginBottom: "2rem", width: "100%" }}>
-        <h1
-          className="gold-text"
-          style={{ textAlign: "left", fontSize: "2rem", fontWeight: 800, margin: 0 }}
-        >
-          Timer
-        </h1>
-        <p style={{ textAlign: "left", marginTop: "4px", color: "oklch(1 0 0 / 0.6)" }}>
-          {isActive ? "Ka-ching! You&apos;re earning." : "Hit the button when nature calls."}
-        </p>
-      </header>
+    <div style={{ padding: "1.5rem 1rem 6rem", maxWidth: "600px", margin: "0 auto" }}>
+      <h1 className="gold-text" style={{ fontSize: "1.8rem", fontWeight: 800, marginBottom: "0.5rem" }}>Timer</h1>
+      <p style={{ color: "#888", marginBottom: "2rem", fontSize: "0.9rem" }}>
+        {isRunning ? "You're on the throne. Timer keeps going even if you play a game!" : "Start the timer when you sit down."}
+      </p>
 
-      <div style={{ marginBottom: "2.5rem", width: "100%" }}>
-        <h2
-          style={{
-            fontSize: "1.2rem",
-            marginBottom: "1rem",
-            color: "oklch(1 0 0 / 0.8)",
-            fontWeight: 400,
-          }}
-        >
-          {isActive ? "You are currently earning:" : "Ready to go?"}
-        </h2>
-        <div
-          className="glass-panel"
-          style={{
-            padding: "2rem 1rem",
-            maxWidth: "320px",
-            margin: "0 auto",
-            border: isActive
-              ? "1px solid oklch(0.85 0.17 85)"
-              : "1px solid oklch(1 0 0 / 0.1)",
-            boxShadow: isActive ? "0 0 30px oklch(0.85 0.17 85 / 0.3)" : "none",
-            transition: "all 0.5s",
-          }}
-        >
-          <h1
-            style={{
-              fontSize: "3.5rem",
-              margin: 0,
-              color: "oklch(0.85 0.17 85)",
-              fontWeight: 800,
-              fontFamily: "monospace",
-            }}
-          >
-            ${earned.toFixed(4)}
-          </h1>
-          <p
-            style={{
-              margin: "12px 0 0 0",
-              color: "oklch(0.78 0.18 155)",
-              fontFamily: "monospace",
-              fontSize: "1.1rem",
-            }}
-          >
-            +{moneyPerSecond().toFixed(4)} / sec
-          </p>
-          <p
-            style={{
-              margin: "8px 0 0 0",
-              color: "oklch(1 0 0 / 0.5)",
-              fontSize: "0.9rem",
-              fontFamily: "monospace",
-            }}
-          >
-            {Math.floor(elapsed / 60)
-              .toString()
-              .padStart(2, "0")}
-            :{(Math.floor(elapsed) % 60).toString().padStart(2, "0")}
-          </p>
+      {/* Timer display */}
+      <div className="glass-panel" style={{ padding: "2.5rem 1rem", textAlign: "center", marginBottom: "1.5rem" }}>
+        <div style={{ fontSize: "4rem", fontWeight: 900, color: "#fff", fontVariantNumeric: "tabular-nums", letterSpacing: "-2px" }}>
+          {formatTime(elapsed)}
         </div>
+        <div className="gold-text" style={{ fontSize: "2rem", fontWeight: 700, marginTop: "0.75rem" }}>
+          ${earned.toFixed(4)}
+        </div>
+        <div style={{ color: "#888", fontSize: "0.85rem", marginTop: "0.25rem" }}>earned this session</div>
       </div>
 
-      {!isActive ? (
-        <button
-          onClick={startTimer}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "10px",
-            padding: "20px 44px",
-            fontSize: "1.4rem",
-            borderRadius: "50px",
-            border: "none",
-            background: "linear-gradient(135deg, oklch(0.78 0.18 155), oklch(0.6 0.2 145))",
-            boxShadow: "0 10px 30px oklch(0.78 0.18 155 / 0.4)",
-            color: "oklch(0.1 0.02 290)",
-            fontFamily: "Outfit, sans-serif",
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
-          <Play fill="currentColor" size={28} /> Gotta Go!
-        </button>
-      ) : (
-        <button
-          onClick={stopTimer}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "10px",
-            padding: "20px 44px",
-            fontSize: "1.4rem",
-            borderRadius: "50px",
-            border: "none",
-            background: "oklch(0.65 0.22 25)",
-            boxShadow: "0 10px 30px oklch(0.65 0.22 25 / 0.4)",
-            color: "white",
-            fontFamily: "Outfit, sans-serif",
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
-          <Square fill="white" size={28} /> I&apos;m Finished!
-        </button>
+      {/* Salary info */}
+      {profile && (
+        <div className="glass-panel" style={{ padding: "0.75rem 1rem", marginBottom: "1.5rem", display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
+          <span style={{ color: "#888" }}>Rate: <span style={{ color: "#fff" }}>${parseFloat(profile.salaryAmount ?? "0").toLocaleString()}/{profile.salaryType === "hourly" ? "hr" : "yr"}</span></span>
+          <span style={{ color: "#888" }}>Per sec: <span style={{ color: "#f5c518" }}>${salaryPerSecond.toFixed(6)}</span></span>
+        </div>
       )}
 
-      {isActive && (
-        <div style={{ marginTop: "3rem", textAlign: "center" }}>
-          <p style={{ color: "oklch(1 0 0 / 0.6)", marginBottom: "16px" }}>
-            Bored? Play a quick game!
-          </p>
-          <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
-            <Link
-              href="/minigame/clog"
-              style={{
-                padding: "12px 24px",
-                borderRadius: "12px",
-                border: "1px solid oklch(1 0 0 / 0.1)",
-                background: "oklch(1 0 0 / 0.05)",
-                color: "white",
-                textDecoration: "none",
-                fontFamily: "Outfit, sans-serif",
-                fontWeight: 600,
-              }}
-            >
-              Clog-A-Mole
-            </Link>
-            <Link
-              href="/minigame/toss"
-              style={{
-                padding: "12px 24px",
-                borderRadius: "12px",
-                border: "1px solid oklch(1 0 0 / 0.1)",
-                background: "oklch(1 0 0 / 0.05)",
-                color: "white",
-                textDecoration: "none",
-                fontFamily: "Outfit, sans-serif",
-                fontWeight: 600,
-              }}
-            >
-              Paper Toss
-            </Link>
+      {/* Controls */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+        {!isRunning ? (
+          <button onClick={handleStart} style={{ ...btnStyle, background: "linear-gradient(135deg, oklch(0.85 0.17 85), oklch(0.65 0.14 75))", color: "oklch(0.1 0.02 290)" }}>
+            🚽 Sit Down & Start
+          </button>
+        ) : (
+          <button onClick={handleStop} disabled={saveMutation.isPending} style={{ ...btnStyle, background: "linear-gradient(135deg, #e74c3c, #c0392b)", color: "#fff" }}>
+            {saveMutation.isPending ? "Saving..." : "🏁 Done — Save Session"}
+          </button>
+        )}
+
+        {isRunning && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+            <button onClick={() => navigate("/minigame/clog")} style={{ ...btnStyle, background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: "0.9rem" }}>
+              🪠 Clog-A-Mole
+            </button>
+            <button onClick={() => navigate("/minigame/toss")} style={{ ...btnStyle, background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: "0.9rem" }}>
+              🧻 Paper Toss
+            </button>
           </div>
-        </div>
+        )}
+      </div>
+
+      {isRunning && (
+        <p style={{ color: "#666", fontSize: "0.8rem", textAlign: "center", marginTop: "1.5rem" }}>
+          ⚠️ Timer is still running while you play. Come back here to stop it.
+        </p>
       )}
     </div>
   );
 }
+
+const btnStyle: React.CSSProperties = { padding: "0.875rem", borderRadius: "12px", border: "none", fontFamily: "Outfit, sans-serif", fontWeight: 700, fontSize: "1rem", cursor: "pointer" };

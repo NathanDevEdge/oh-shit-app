@@ -1,0 +1,24 @@
+# Oh Shit App TODO
+
+## Database & Auth
+- [x] Design DB schema: users (with password hash), toilet_sessions, minigame_scores
+- [x] Run pnpm db:push to create tables
+- [x] Build auth API routes: register, login, logout (email + password, no OAuth)
+- [x] Update Login page to be a proper register/login screen
+
+## Leaderboard
+- [x] Build session leaderboard API (top earners from toilet timer)
+- [x] Build minigame leaderboard API (top scores per game)
+- [x] Update Leaderboard page to read from DB instead of localStorage
+- [x] Update Dashboard to save sessions to DB
+
+## Timer Fix
+- [x] Fix timer so it persists across page navigation (keeps running when going to minigames)
+
+## App Wiring
+- [x] Update App.tsx to restore all routes with auth guard
+- [x] Update BottomNav to work with new auth
+- [x] Update Profile page to read from DB user
+
+## Tests
+- [x] Write vitest tests for all new tRPC procedures (10 tests passing)

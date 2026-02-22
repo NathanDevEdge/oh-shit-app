@@ -1,133 +1,99 @@
-import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { trpc } from "@/lib/trpc";
 
-interface Session {
-  earned: number;
-  duration: number;
-  date: string;
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}m ${s}s`;
 }
 
-interface User {
-  email: string;
-  salary: number;
-  salaryType: "hourly" | "yearly";
+function formatDate(date: Date | string): string {
+  return new Date(date).toLocaleString();
 }
 
 export default function Dashboard() {
   const [, navigate] = useLocation();
-  const [user, setUser] = useState<User | null>(null);
-  const [sessionHistory, setSessionHistory] = useState<Session[]>([]);
+  const { data: profile, isLoading: profileLoading } = trpc.profile.get.useQuery();
+  const { data: sessions, isLoading: sessionsLoading } = trpc.sessions.myHistory.useQuery();
+  const logoutMutation = trpc.auth.logout.useMutation({ onSuccess: () => navigate("/") });
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (!storedUser) {
-      navigate("/");
-      return;
-    }
-    const parsedUser: User = JSON.parse(storedUser);
-    setUser(parsedUser);
-    const history: Session[] = JSON.parse(
-      localStorage.getItem(`history_${parsedUser.email}`) || "[]"
-    );
-    setSessionHistory(history);
-  }, [navigate]);
+  if (profileLoading) {
+    return <div style={pageStyle}><p style={{ color: "#888", textAlign: "center", paddingTop: "4rem" }}>Loading...</p></div>;
+  }
+  if (!profile) { navigate("/"); return null; }
 
-  if (!user) return <div style={{ padding: "2rem" }}>Loading...</div>;
-
-  const totalEarned = sessionHistory.reduce((acc, curr) => acc + curr.earned, 0);
+  const totalEarnings = sessions?.reduce((sum, s) => sum + parseFloat(s.earningsAmount), 0) ?? 0;
+  const totalSessions = sessions?.length ?? 0;
+  const totalSeconds = sessions?.reduce((sum, s) => sum + s.durationSeconds, 0) ?? 0;
+  const salaryPerSecond = profile.salaryType === "hourly"
+    ? parseFloat(profile.salaryAmount ?? "0") / 3600
+    : parseFloat(profile.salaryAmount ?? "0") / (365 * 24 * 3600);
 
   return (
-    <div>
-      <header style={{ marginBottom: "2rem", marginTop: "0.5rem" }}>
-        <h1
-          className="gold-text"
-          style={{ textAlign: "left", fontSize: "2rem", fontWeight: 800, margin: 0 }}
-        >
-          Dashboard
-        </h1>
-        <p style={{ textAlign: "left", marginTop: "4px", color: "oklch(1 0 0 / 0.6)" }}>
-          Welcome back to the throne.
-        </p>
-      </header>
-
-      <div
-        className="glass-panel"
-        style={{ padding: "1.5rem", marginBottom: "1.5rem", textAlign: "center" }}
-      >
-        <h3 style={{ margin: 0, color: "oklch(1 0 0 / 0.7)", fontWeight: 400 }}>
-          Total Earned on Toilet
-        </h3>
-        <h1
-          style={{
-            fontSize: "3rem",
-            margin: "10px 0",
-            color: "oklch(0.85 0.17 85)",
-            fontWeight: 800,
-          }}
-        >
-          ${totalEarned.toFixed(2)}
-        </h1>
-        <p style={{ margin: 0, fontSize: "0.9rem", color: "oklch(0.78 0.18 155)" }}>
-          Across {sessionHistory.length} sessions
-        </p>
+    <div style={pageStyle}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+        <div>
+          <h1 className="gold-text" style={{ fontSize: "1.8rem", fontWeight: 800, margin: 0 }}>Dashboard</h1>
+          <p style={{ color: "#888", margin: "0.25rem 0 0", fontSize: "0.9rem" }}>Welcome back, {profile.name || profile.email}!</p>
+        </div>
+        <button onClick={() => logoutMutation.mutate()} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", color: "#aaa", padding: "0.4rem 0.9rem", cursor: "pointer", fontSize: "0.85rem", fontFamily: "Outfit, sans-serif" }}>Sign Out</button>
       </div>
 
-      <h2 style={{ fontSize: "1.3rem", marginBottom: "1rem", fontWeight: 700 }}>
-        Recent Sessions
-      </h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>
+        {[
+          { label: "Total Earned", value: `$${totalEarnings.toFixed(4)}`, icon: "💰" },
+          { label: "Sessions", value: String(totalSessions), icon: "🚽" },
+          { label: "Time on Throne", value: formatDuration(totalSeconds), icon: "⏱️" },
+        ].map((stat) => (
+          <div key={stat.label} className="glass-panel" style={{ padding: "1rem", textAlign: "center" }}>
+            <div style={{ fontSize: "1.5rem" }}>{stat.icon}</div>
+            <div className="gold-text" style={{ fontSize: "1.1rem", fontWeight: 700, marginTop: "0.25rem" }}>{stat.value}</div>
+            <div style={{ color: "#888", fontSize: "0.7rem", marginTop: "0.2rem" }}>{stat.label}</div>
+          </div>
+        ))}
+      </div>
 
-      {sessionHistory.length === 0 ? (
-        <div className="glass-panel" style={{ padding: "2rem", textAlign: "center", opacity: 0.7 }}>
-          <p>You haven&apos;t tracked any sessions yet.</p>
-          <button
-            onClick={() => navigate("/timer")}
-            style={{
-              marginTop: "1rem",
-              padding: "12px 24px",
-              borderRadius: "12px",
-              border: "none",
-              background: "linear-gradient(135deg, oklch(0.85 0.17 85), oklch(0.65 0.14 75))",
-              color: "oklch(0.1 0.02 290)",
-              fontFamily: "Outfit, sans-serif",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            Go Start Timer
-          </button>
+      <div className="glass-panel" style={{ padding: "1rem", marginBottom: "1.5rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <p style={{ color: "#888", fontSize: "0.8rem", margin: 0 }}>Your Rate</p>
+            <p style={{ color: "#fff", fontWeight: 600, margin: "0.25rem 0 0" }}>${parseFloat(profile.salaryAmount ?? "0").toLocaleString()} / {profile.salaryType === "hourly" ? "hr" : "yr"}</p>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <p style={{ color: "#888", fontSize: "0.8rem", margin: 0 }}>Per Second</p>
+            <p style={{ color: "#f5c518", fontWeight: 600, margin: "0.25rem 0 0" }}>${salaryPerSecond.toFixed(6)}/s</p>
+          </div>
         </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          {sessionHistory
-            .slice()
-            .reverse()
-            .slice(0, 5)
-            .map((session, i) => (
-              <div
-                key={i}
-                className="glass-panel"
-                style={{
-                  padding: "1rem",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1.5rem" }}>
+        <button onClick={() => navigate("/timer")} style={actionBtnStyle}>🚽 Start Session</button>
+        <button onClick={() => navigate("/leaderboard")} style={{ ...actionBtnStyle, background: "rgba(255,255,255,0.06)", color: "#fff" }}>🏆 Leaderboard</button>
+      </div>
+
+      <div className="glass-panel" style={{ padding: "1.25rem" }}>
+        <h3 style={{ color: "#fff", fontWeight: 700, margin: "0 0 1rem", fontSize: "1rem" }}>Recent Sessions</h3>
+        {sessionsLoading ? (
+          <p style={{ color: "#888", textAlign: "center" }}>Loading...</p>
+        ) : !sessions || sessions.length === 0 ? (
+          <p style={{ color: "#888", textAlign: "center", fontSize: "0.9rem" }}>No sessions yet. Hit the throne! 🚽</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+            {sessions.map((session) => (
+              <div key={session.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0.75rem", background: "rgba(255,255,255,0.04)", borderRadius: "8px" }}>
                 <div>
-                  <strong style={{ fontSize: "1.1rem", color: "oklch(0.85 0.17 85)" }}>
-                    ${session.earned.toFixed(2)}
-                  </strong>
-                  <p style={{ margin: "4px 0 0 0", fontSize: "0.8rem", color: "oklch(1 0 0 / 0.6)" }}>
-                    {new Date(session.date).toLocaleDateString()}
-                  </p>
+                  <span style={{ color: "#fff", fontSize: "0.9rem" }}>{formatDuration(session.durationSeconds)}</span>
+                  <span style={{ color: "#666", fontSize: "0.75rem", marginLeft: "0.5rem" }}>{formatDate(session.createdAt)}</span>
                 </div>
-                <div style={{ fontSize: "0.9rem", color: "oklch(1 0 0 / 0.8)" }}>
-                  {Math.floor(session.duration / 60)}m {session.duration % 60}s
-                </div>
+                <span className="gold-text" style={{ fontWeight: 700, fontSize: "0.95rem" }}>${parseFloat(session.earningsAmount).toFixed(4)}</span>
               </div>
             ))}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
+const pageStyle: React.CSSProperties = { padding: "1.5rem 1rem 6rem", maxWidth: "600px", margin: "0 auto" };
+const actionBtnStyle: React.CSSProperties = { padding: "0.875rem", borderRadius: "12px", border: "none", background: "linear-gradient(135deg, oklch(0.85 0.17 85), oklch(0.65 0.14 75))", color: "oklch(0.1 0.02 290)", fontFamily: "Outfit, sans-serif", fontWeight: 700, fontSize: "0.95rem", cursor: "pointer" };
