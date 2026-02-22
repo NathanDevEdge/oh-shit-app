@@ -22,3 +22,7 @@
 
 ## Tests
 - [x] Write vitest tests for all new tRPC procedures (10 tests passing)
+
+## New Features (Round 3)
+- [x] Add display name field to registration form (required at signup)
+- [x] Rebuild Paper Toss as physics drag-to-throw game (toilet target, wind, progressive difficulty)
