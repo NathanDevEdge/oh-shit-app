@@ -46,7 +46,7 @@ const Login = () => {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                <h1 className="title">Oh Sh*t</h1>
+                <h1 className="title">Turd Earnings</h1>
                 <p className="subtitle">Time is money, especially on the toilet.</p>
             </div>
 
