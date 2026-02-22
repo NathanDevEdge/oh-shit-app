@@ -1,8 +1,22 @@
-# React + Vite
+# Turd Earnings (formerly Oh Sh*t App)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A humorous but high-quality web app built to track your earnings during "restroom breaks." It calculates your real-time earnings based on your salary and features interactive minigames to keep you occupied.
 
-Currently, two official plugins are available:
+**Live Demo:** [https://turdearnings.devedge.au](https://turdearnings.devedge.au)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
+- **Account & Profile System**: Set your hourly or yearly salary.
+- **Real-Time Money Timer**: A live counter showing exactly how much you're making down to the fraction of a cent.
+- **Global Leaderboard**: See how your earnings stack up against others.
+- **Minigames**: Play built-in minigames like "Clog-A-Mole" and "Paper Toss" while you wait.
+- **Admin Dashboard**: Manage user accounts and data.
+
+## Tech Stack
+- Frontend: React + Vite
+- Styling: Vanilla CSS with custom "Flush Gold" glassmorphic design system
+- Data Storage: Browser LocalStorage (Mock Backend)
+
+## Getting Started Locally
+1. Clone the repository.
+2. Run `npm install` to install dependencies.
+3. Run `npm run dev` to start the local development server.
