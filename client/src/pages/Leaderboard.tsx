@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 
-type Tab = "toilet" | "clog" | "toss";
+type Tab = "toilet" | "clog" | "toss" | "pipe_panic";
 
 export default function Leaderboard() {
   const [tab, setTab] = useState<Tab>("toilet");
@@ -9,14 +9,16 @@ export default function Leaderboard() {
   const { data: toiletBoard, isLoading: toiletLoading } = trpc.sessions.leaderboard.useQuery();
   const { data: clogBoard, isLoading: clogLoading } = trpc.minigames.leaderboard.useQuery({ gameId: "clog" });
   const { data: tossBoard, isLoading: tossLoading } = trpc.minigames.leaderboard.useQuery({ gameId: "toss" });
+  const { data: pipeBoard, isLoading: pipeLoading } = trpc.minigames.leaderboard.useQuery({ gameId: "pipe_panic" });
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: "toilet", label: "Toilet Timer", icon: "🚽" },
     { id: "clog", label: "Clog-A-Mole", icon: "🪠" },
     { id: "toss", label: "Paper Toss", icon: "🧻" },
+    { id: "pipe_panic", label: "Pipe Panic", icon: "💩" },
   ];
 
-  const isLoading = tab === "toilet" ? toiletLoading : tab === "clog" ? clogLoading : tossLoading;
+  const isLoading = tab === "toilet" ? toiletLoading : tab === "clog" ? clogLoading : tab === "toss" ? tossLoading : pipeLoading;
 
   const renderToiletBoard = () => {
     if (!toiletBoard || toiletBoard.length === 0) return <EmptyState />;
@@ -69,6 +71,7 @@ export default function Leaderboard() {
             {tab === "toilet" && renderToiletBoard()}
             {tab === "clog" && renderGameBoard(clogBoard)}
             {tab === "toss" && renderGameBoard(tossBoard)}
+            {tab === "pipe_panic" && renderGameBoard(pipeBoard)}
           </div>
         )}
       </div>

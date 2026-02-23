@@ -13,6 +13,7 @@ import Profile from "./pages/Profile";
 import AdminDashboard from "./pages/AdminDashboard";
 import MinigameClog from "./pages/MinigameClog";
 import MinigameToss from "./pages/MinigameToss";
+import MinigamePipePanic from "./pages/MinigamePipePanic";
 import NotFound from "./pages/NotFound";
 
 function Router() {
@@ -32,6 +33,7 @@ function Router() {
             <Route path="/admin" component={AdminDashboard} />
             <Route path="/minigame/clog" component={MinigameClog} />
             <Route path="/minigame/toss" component={MinigameToss} />
+            <Route path="/minigame/pipe-panic" component={MinigamePipePanic} />
             <Route component={NotFound} />
           </Switch>
         </div>

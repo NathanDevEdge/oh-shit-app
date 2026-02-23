@@ -160,6 +160,14 @@ describe("minigames.submitScore", () => {
     expect(db.submitMinigameScore).toHaveBeenCalledWith({ userId: 1, gameId: "clog", score: 150 });
   });
 
+  it("accepts pipe_panic gameId", async () => {
+    const { ctx } = createAuthCtx();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.minigames.submitScore({ gameId: "pipe_panic", score: 42 });
+    expect(result.success).toBe(true);
+    expect(db.submitMinigameScore).toHaveBeenCalledWith({ userId: 1, gameId: "pipe_panic", score: 42 });
+  });
+
   it("rejects invalid gameId", async () => {
     const { ctx } = createAuthCtx();
     const caller = appRouter.createCaller(ctx);

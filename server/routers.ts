@@ -148,7 +148,7 @@ export const appRouter = router({
   minigames: router({
     submitScore: protectedProcedure
       .input(z.object({
-        gameId: z.enum(["clog", "toss"]),
+        gameId: z.enum(["clog", "toss", "pipe_panic"]),
         score: z.number().int().nonnegative(),
       }))
       .mutation(async ({ input, ctx }) => {
@@ -161,7 +161,7 @@ export const appRouter = router({
       }),
 
     leaderboard: publicProcedure
-      .input(z.object({ gameId: z.enum(["clog", "toss"]) }))
+      .input(z.object({ gameId: z.enum(["clog", "toss", "pipe_panic"]) }))
       .query(async ({ input }) => {
         return getMinigameLeaderboard(input.gameId, 50);
       }),

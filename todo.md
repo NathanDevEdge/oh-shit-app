@@ -32,3 +32,8 @@
 - [x] Add streak multiplier to Clog-A-Mole (consecutive hits = 2x/3x score)
 - [x] Add game over screen to Clog-A-Mole (Play Again, View Leaderboard, Back to Timer)
 - [x] Add game over screen to Paper Toss (Play Again, View Leaderboard, Back to Timer)
+
+## New Features (Round 5)
+- [x] Build Pipe Panic core mechanics (Flappy Bird-style, turd character, sewer pipes, tap-to-flap, lives, leaderboard)
+- [x] Add Pipe Panic route to App.tsx and nav entry to BottomNav / minigame hub
+- [x] Add "pipe_panic" game ID to minigame score submission on server
