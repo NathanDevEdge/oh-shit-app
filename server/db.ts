@@ -127,24 +127,6 @@ export async function submitMinigameScore(score: InsertMinigameScore) {
   await db.insert(minigameScores).values(score);
 }
 
-export async function getUserPersonalBests(userId: number) {
-  const db = await getDb();
-  if (!db) return { clog: 0, toss: 0, pipe_panic: 0 };
-  const rows = await db
-    .select({
-      gameId: minigameScores.gameId,
-      bestScore: sql<number>`MAX(${minigameScores.score})`,
-    })
-    .from(minigameScores)
-    .where(eq(minigameScores.userId, userId))
-    .groupBy(minigameScores.gameId);
-  const result: Record<string, number> = { clog: 0, toss: 0, pipe_panic: 0 };
-  for (const row of rows) {
-    result[row.gameId] = row.bestScore;
-  }
-  return result as { clog: number; toss: number; pipe_panic: number };
-}
-
 export async function getMinigameLeaderboard(gameId: string, limit = 50) {
   const db = await getDb();
   if (!db) return [];
@@ -162,4 +144,24 @@ export async function getMinigameLeaderboard(gameId: string, limit = 50) {
     .groupBy(minigameScores.userId, users.name, users.email)
     .orderBy(desc(sql`MAX(${minigameScores.score})`))
     .limit(limit);
+}
+
+export async function getUserPersonalBests(userId: number): Promise<{ clog: number; toss: number; pipe_panic: number }> {
+  const db = await getDb();
+  if (!db) return { clog: 0, toss: 0, pipe_panic: 0 };
+  const rows = await db
+    .select({
+      gameId: minigameScores.gameId,
+      bestScore: sql<number>`MAX(${minigameScores.score})`,
+    })
+    .from(minigameScores)
+    .where(eq(minigameScores.userId, userId))
+    .groupBy(minigameScores.gameId);
+  const result = { clog: 0, toss: 0, pipe_panic: 0 };
+  for (const row of rows) {
+    if (row.gameId === "clog") result.clog = row.bestScore;
+    else if (row.gameId === "toss") result.toss = row.bestScore;
+    else if (row.gameId === "pipe_panic") result.pipe_panic = row.bestScore;
+  }
+  return result;
 }

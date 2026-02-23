@@ -133,12 +133,14 @@ export default function Timer() {
         )}
 
         {isRunning && (
-          <button
-            onClick={() => navigate("/minigames")}
-            style={{ ...btnStyle, background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: "0.95rem", fontWeight: 700 }}
-          >
-            🎮 Play a Minigame
-          </button>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+            <button onClick={() => navigate("/minigame/clog")} style={{ ...btnStyle, background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: "0.9rem" }}>
+              🪠 Clog-A-Mole
+            </button>
+            <button onClick={() => navigate("/minigame/toss")} style={{ ...btnStyle, background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: "0.9rem" }}>
+              🧻 Paper Toss
+            </button>
+          </div>
         )}
       </div>
 
