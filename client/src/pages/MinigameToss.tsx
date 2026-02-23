@@ -215,9 +215,10 @@ export default function MinigameToss() {
     if (gameStateRef.current === "dragging" && dragStartRef.current && dragCurrentRef.current && ball) {
       const dx = dragStartRef.current.x - dragCurrentRef.current.x;
       const dy = dragStartRef.current.y - dragCurrentRef.current.y;
-      const speed = Math.sqrt(dx * dx + dy * dy) * 0.18;
-      const vx = dx * 0.18 + windRef.current * 0.5;
-      const vy = dy * 0.18;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const speed = dist > 0 ? Math.max(Math.min(dist * 0.22, 24), 10) : 10;
+      const vx = dist > 0 ? (dx / dist) * speed : 0;
+      const vy = dist > 0 ? (dy / dist) * speed : 0;
 
       ctx.save();
       ctx.setLineDash([5, 8]);
@@ -378,7 +379,8 @@ export default function MinigameToss() {
     if (!ball) return false;
     const dx = pos.x - ball.pos.x;
     const dy = pos.y - ball.pos.y;
-    return Math.sqrt(dx * dx + dy * dy) < BALL_RADIUS + 24;
+    // Large hitbox — entire lower quarter of canvas is grabbable near the ball
+    return Math.sqrt(dx * dx + dy * dy) < BALL_RADIUS + 48;
   };
 
   const handlePointerDown = (clientX: number, clientY: number) => {
@@ -402,15 +404,17 @@ export default function MinigameToss() {
     const dy = dragStartRef.current.y - dragCurrentRef.current.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    if (dist < 8) {
+    if (dist < 5) {
       // Too short — cancel drag
       gameStateRef.current = "idle";
       setGameState("idle");
       return;
     }
 
-    // Launch!
-    const speed = Math.min(dist * 0.18, 22);
+    // Launch! Scale speed generously so even short drags can reach the toilet.
+    // Minimum speed of 10 ensures the ball always has enough power.
+    const rawSpeed = dist * 0.22;
+    const speed = Math.max(Math.min(rawSpeed, 24), 10);
     ballRef.current.vel = {
       x: (dx / dist) * speed,
       y: (dy / dist) * speed,
