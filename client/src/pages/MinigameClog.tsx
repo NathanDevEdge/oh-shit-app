@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { ArrowLeft } from "lucide-react";
-import { trpc } from "@/lib/trpc";
+import { trpc } from "../lib/trpc";
 import { toast } from "sonner";
 
 const TIMER_ACTIVE_KEY = "toilet_timer_active";
@@ -10,15 +10,18 @@ const TIMER_KEY = "toilet_timer_start";
 export default function MinigameClog() {
   const [, navigate] = useLocation();
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(30);
+  const [lives, setLives] = useState(3);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [activeMole, setActiveMole] = useState<number | null>(null);
+  const [activeMole, setActiveMole] = useState<{ index: number, type: 'poop' | 'duck' } | null>(null);
+  const [flushingMole, setFlushingMole] = useState<number | null>(null);
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerElapsed, setTimerElapsed] = useState(0);
+
   const gameInterval = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const timerInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const moleTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPlayingRef = useRef(false);
   const scoreRef = useRef(0);
+  const livesRef = useRef(3);
 
   const submitMutation = trpc.minigames.submitScore.useMutation({
     onSuccess: () => toast.success("Score saved to leaderboard! 🏆"),
@@ -37,49 +40,88 @@ export default function MinigameClog() {
     }
     return () => {
       if (gameInterval.current) clearTimeout(gameInterval.current);
-      if (timerInterval.current) clearInterval(timerInterval.current);
+      if (moleTimeout.current) clearTimeout(moleTimeout.current);
     };
   }, []);
 
   const popMole = () => {
-    const time = Math.random() * 600 + 600;
-    const hole = Math.floor(Math.random() * 9);
-    setActiveMole(hole);
+    if (!isPlayingRef.current) return;
+
+    // Progression: faster as score increases
+    const minDelay = Math.max(300, 1000 - Math.floor(scoreRef.current / 50) * 100);
+    const maxDelay = Math.max(800, 1800 - Math.floor(scoreRef.current / 50) * 150);
+    const timeToWait = Math.random() * (maxDelay - minDelay) + minDelay;
+
     gameInterval.current = setTimeout(() => {
-      if (isPlayingRef.current) popMole();
-    }, time);
+      if (!isPlayingRef.current) return;
+
+      const index = Math.floor(Math.random() * 9);
+      const isDuck = Math.random() > 0.8; // 20% chance for a duck obstacle
+      setActiveMole({ index, type: isDuck ? 'duck' : 'poop' });
+
+      // If it's a poop, give limited time to whack or lose a life
+      const visibleTime = Math.max(600, 1500 - Math.floor(scoreRef.current / 50) * 100);
+
+      moleTimeout.current = setTimeout(() => {
+        if (!isDuck && isPlayingRef.current) {
+          // Missed a poop!
+          loseLife();
+        }
+        setActiveMole(null);
+        popMole();
+      }, visibleTime);
+
+    }, timeToWait);
+  };
+
+  const loseLife = () => {
+    livesRef.current -= 1;
+    setLives(livesRef.current);
+    if (livesRef.current <= 0) {
+      endGame();
+    } else {
+      toast.error("Life lost! 🧻", { duration: 1000 });
+    }
   };
 
   const endGame = () => {
     isPlayingRef.current = false;
     setIsPlaying(false);
     setActiveMole(null);
-    if (timerInterval.current) clearInterval(timerInterval.current);
     if (gameInterval.current) clearTimeout(gameInterval.current);
+    if (moleTimeout.current) clearTimeout(moleTimeout.current);
     submitMutation.mutate({ gameId: "clog", score: scoreRef.current });
+    toast.error("Game Over! 🚽", { description: `Final Score: ${scoreRef.current}` });
   };
 
   const startGame = () => {
     scoreRef.current = 0;
+    livesRef.current = 3;
     setScore(0);
-    setTimeLeft(30);
+    setLives(3);
     isPlayingRef.current = true;
     setIsPlaying(true);
-    timerInterval.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) { endGame(); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
     popMole();
   };
 
   const whack = (index: number) => {
-    if (index === activeMole && isPlayingRef.current) {
+    if (!isPlayingRef.current || !activeMole || activeMole.index !== index) return;
+
+    if (activeMole.type === 'poop') {
+      // Success!
       scoreRef.current += 10;
       setScore(scoreRef.current);
+      setFlushingMole(index);
+      setTimeout(() => setFlushingMole(null), 500);
+
+      if (moleTimeout.current) clearTimeout(moleTimeout.current);
       setActiveMole(null);
-      if (gameInterval.current) clearTimeout(gameInterval.current);
+      popMole();
+    } else {
+      // Hit a Duck!
+      loseLife();
+      if (moleTimeout.current) clearTimeout(moleTimeout.current);
+      setActiveMole(null);
       popMole();
     }
   };
@@ -100,10 +142,22 @@ export default function MinigameClog() {
       )}
 
       <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
-        <h1 className="gold-text" style={{ fontSize: "2rem", fontWeight: 800, margin: "0 0 1rem 0" }}>Clog-A-Mole</h1>
-        <div style={{ display: "flex", justifyContent: "space-around" }}>
-          <div className="glass-panel" style={{ padding: "10px 20px" }}>Score: {score}</div>
-          <div className="glass-panel" style={{ padding: "10px 20px", color: timeLeft <= 5 ? "oklch(0.65 0.22 25)" : "white" }}>Time: {timeLeft}s</div>
+        <h1 className="gold-text" style={{ fontSize: "2.5rem", fontWeight: 800, margin: "0 0 0.5rem 0", letterSpacing: "-1px" }}>Clog-A-Mole</h1>
+        <p style={{ color: "rgba(255,255,255,0.6)", marginBottom: "1.5rem", fontSize: "0.9rem" }}>PLUNGE THE POOPS! Avoid the ducks 🦆</p>
+
+        <div style={{ display: "flex", justifyContent: "center", gap: "20px" }}>
+          <div className="glass-panel" style={{ padding: "12px 24px", minWidth: "120px" }}>
+            <div style={{ fontSize: "0.7rem", textTransform: "uppercase", opacity: 0.6, marginBottom: "2px" }}>Score</div>
+            <div style={{ fontSize: "1.5rem", fontWeight: 800 }}>{score}</div>
+          </div>
+          <div className="glass-panel" style={{ padding: "12px 24px", minWidth: "120px" }}>
+            <div style={{ fontSize: "0.7rem", textTransform: "uppercase", opacity: 0.6, marginBottom: "2px" }}>Health</div>
+            <div style={{ fontSize: "1.5rem", color: lives === 1 ? "#ff6b6b" : "white" }}>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <span key={i} style={{ opacity: i < lives ? 1 : 0.2, marginRight: "4px" }}>🧻</span>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -111,60 +165,114 @@ export default function MinigameClog() {
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(3, 1fr)",
-          gap: "15px",
-          maxWidth: "360px",
+          gap: "20px",
+          maxWidth: "380px",
           margin: "0 auto",
           width: "100%",
+          background: "rgba(0,0,0,0.2)",
+          padding: "20px",
+          borderRadius: "24px",
+          border: "1px solid rgba(255,255,255,0.05)",
         }}
       >
         {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
           <div
             key={i}
-            onClick={() => whack(i)}
+            onPointerDown={(e) => {
+              // use onPointerDown for faster mobile response than onClick
+              e.preventDefault();
+              whack(i);
+            }}
             style={{
               aspectRatio: "1",
-              background: "oklch(0 0 0 / 0.5)",
-              borderRadius: "50%",
-              border: "4px solid oklch(1 0 0 / 0.1)",
+              background: "#16212d",
+              borderRadius: "16px",
+              border: "2px solid rgba(255,255,255,0.05)",
+              boxShadow: "inset 0 4px 12px rgba(0,0,0,0.5)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              cursor: isPlaying ? "pointer" : "default",
+              cursor: isPlaying ? "url('https://em-content.zobj.net/source/apple/354/plunger_1faa1.png'), pointer" : "default",
+              position: "relative",
               overflow: "hidden",
             }}
           >
-            {activeMole === i && (
-              <div style={{ fontSize: "3.5rem", animation: "pop 0.3s ease-out" }}>💩</div>
+            {/* The Toilet Icon */}
+            <div style={{ fontSize: "2.5rem", opacity: 0.3 }}>🚽</div>
+
+            {/* The Mole (Poop or Duck) */}
+            {activeMole?.index === i && (
+              <div style={{
+                position: "absolute",
+                fontSize: "3.5rem",
+                animation: "popIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                zIndex: 2,
+                userSelect: "none",
+                pointerEvents: "none"
+              }}>
+                {activeMole.type === 'poop' ? '💩' : '🦆'}
+              </div>
+            )}
+
+            {/* Flush Effect */}
+            {flushingMole === i && (
+              <div style={{
+                position: "absolute",
+                fontSize: "3.5rem",
+                animation: "flushAway 0.5s ease-in forwards",
+                zIndex: 1,
+                userSelect: "none",
+                pointerEvents: "none"
+              }}>
+                💩
+              </div>
             )}
           </div>
         ))}
       </div>
 
       {!isPlaying && (
-        <div style={{ textAlign: "center", marginTop: "3rem" }}>
+        <div style={{ textAlign: "center", marginTop: "2rem" }}>
           <button
             onClick={startGame}
+            className="gold-button"
             style={{
-              padding: "16px 32px",
-              fontSize: "1.2rem",
-              borderRadius: "12px",
-              border: "none",
-              background: "linear-gradient(135deg, oklch(0.85 0.17 85), oklch(0.65 0.14 75))",
-              color: "oklch(0.1 0.02 290)",
-              fontFamily: "Outfit, sans-serif",
-              fontWeight: 700,
-              cursor: "pointer",
+              padding: "18px 48px",
+              fontSize: "1.3rem",
+              borderRadius: "16px",
+              fontWeight: 800,
+              boxShadow: "0 10px 20px rgba(0,0,0,0.3)"
             }}
           >
-            {timeLeft === 0 ? "Play Again" : "Start Game"}
+            {lives <= 0 ? "Try Again" : "Start Plunging!"}
           </button>
+
+          <div style={{ marginTop: "1.5rem", color: "rgba(255,255,255,0.4)", fontSize: "0.85rem" }}>
+            Tap Poops (10pts) | Don't miss! | Avoid Ducks (-1 Life)
+          </div>
         </div>
       )}
 
       <style>{`
-        @keyframes pop {
-          0% { transform: translateY(50px); opacity: 0; }
-          100% { transform: translateY(0); opacity: 1; }
+        @keyframes popIn {
+          0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+          70% { transform: scale(1.1) rotate(5deg); }
+          100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        @keyframes flushAway {
+          0% { transform: scale(1) rotate(0deg); opacity: 1; }
+          40% { transform: scale(0.8) rotate(180deg); }
+          100% { transform: scale(0) rotate(720deg); opacity: 0; filter: blur(5px); }
+        }
+        .gold-button {
+          background: linear-gradient(135deg, #ffd700, #b8860b);
+          color: #0b0710;
+          border: none;
+          cursor: pointer;
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .gold-button:active {
+          transform: scale(0.95);
         }
       `}</style>
     </div>

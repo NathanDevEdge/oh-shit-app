@@ -27,4 +27,3 @@
 - [x] Add display name field to registration form (required at signup)
 - [x] Rebuild Paper Toss as physics drag-to-throw game (toilet target, wind, progressive difficulty)
 - [x] Fix Paper Toss: larger grab hitbox + ensure throw always has enough power to reach toilet
-- [x] Pull and deploy user's Paper Toss visual redesign from GitHub (bathroom environment + fluid particles)
