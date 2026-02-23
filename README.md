@@ -4,7 +4,7 @@
 
 Turd Earnings is a full-stack web app that calculates how much money you make while sitting on the toilet at work, based on your real salary. Compete with friends on a live global leaderboard, kill time with three browser minigames, and discover just how valuable your bathroom breaks really are.
 
-**Live site:** [https://oh-shit-app.manus.space](https://oh-shit-app.manus.space)
+**Live site:** [https://oh-shit-app.manus.space](turdearnings.devedge.com.au)
 
 ---
 
