@@ -36,6 +36,10 @@ export default function MinigameClog() {
     onError: () => toast.error("Could not save score — are you logged in?"),
   });
 
+  const { data: personalBests } = trpc.minigames.personalBests.useQuery();
+  const prevBest = personalBests?.clog ?? 0;
+  const isNewPB = gameOver && finalScore > 0 && finalScore > prevBest;
+
   useEffect(() => {
     const active = localStorage.getItem(TIMER_ACTIVE_KEY) === "true";
     setTimerRunning(active);
@@ -191,8 +195,16 @@ export default function MinigameClog() {
         <div className="glass-panel" style={{ padding: "2rem", marginBottom: "2rem", borderRadius: "20px" }}>
           <div style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "2px", opacity: 0.5, marginBottom: "0.5rem" }}>Final Score</div>
           <div style={{ fontSize: "4rem", fontWeight: 800, color: "#f5c518", lineHeight: 1 }}>{finalScore}</div>
+          {isNewPB && (
+            <div style={{ marginTop: "0.75rem", display: "inline-flex", alignItems: "center", gap: "6px", background: "linear-gradient(135deg, #ffd700, #b8860b)", color: "#0b0710", borderRadius: "20px", padding: "4px 14px", fontSize: "0.85rem", fontWeight: 800 }}>
+              🏆 New Personal Best!
+            </div>
+          )}
+          {!isNewPB && prevBest > 0 && (
+            <div style={{ marginTop: "0.75rem", fontSize: "0.8rem", color: "rgba(255,255,255,0.35)" }}>Your best: {prevBest}</div>
+          )}
           {finalScore > 0 && (
-            <div style={{ marginTop: "0.75rem", fontSize: "0.85rem", color: "rgba(255,255,255,0.4)" }}>
+            <div style={{ marginTop: "0.5rem", fontSize: "0.85rem", color: "rgba(255,255,255,0.4)" }}>
               {finalScore >= 500 ? "🏆 Legendary Plunger!" : finalScore >= 200 ? "⭐ Great Plunging!" : "Keep practising!"}
             </div>
           )}

@@ -67,6 +67,10 @@ export default function MinigameToss() {
     onError: () => toast.error("Could not save score — are you logged in?"),
   });
 
+  const { data: personalBests } = trpc.minigames.personalBests.useQuery();
+  const prevBest = personalBests?.toss ?? 0;
+  const isNewPB = gameOver && score > 0 && score > prevBest;
+
   // ─── Toilet position (top-center area) ──────────────────────────────────────
   const getToiletPos = useCallback((): Vec2 => {
     const { w } = canvasSizeRef.current;
@@ -669,6 +673,14 @@ export default function MinigameToss() {
             <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(245,197,24,0.2)", borderRadius: "12px", padding: "0.75rem 2rem", textAlign: "center", marginBottom: "0.5rem" }}>
               <div style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "2px", opacity: 0.5, marginBottom: "4px" }}>Final Score</div>
               <div style={{ fontSize: "2.5rem", fontWeight: 800, color: "#f5c518", lineHeight: 1 }}>{score}</div>
+              {isNewPB && (
+                <div style={{ marginTop: "0.5rem", display: "inline-flex", alignItems: "center", gap: "6px", background: "linear-gradient(135deg, #ffd700, #b8860b)", color: "#0b0710", borderRadius: "20px", padding: "3px 12px", fontSize: "0.8rem", fontWeight: 800 }}>
+                  🏆 New Personal Best!
+                </div>
+              )}
+              {!isNewPB && prevBest > 0 && (
+                <div style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.35)", marginTop: "4px" }}>Your best: {prevBest}</div>
+              )}
               <div style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.4)", marginTop: "4px" }}>
                 {score >= 20 ? "🏆 Incredible aim!" : score >= 10 ? "⭐ Nice shooting!" : "Keep practising!"}
               </div>

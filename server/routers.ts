@@ -18,6 +18,7 @@ import {
   getSessionLeaderboard,
   submitMinigameScore,
   getMinigameLeaderboard,
+  getUserPersonalBests,
 } from "./db";
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "fallback-secret-change-me");
@@ -165,6 +166,10 @@ export const appRouter = router({
       .query(async ({ input }) => {
         return getMinigameLeaderboard(input.gameId, 50);
       }),
+
+    personalBests: protectedProcedure.query(async ({ ctx }) => {
+      return getUserPersonalBests(ctx.user.id);
+    }),
   }),
 });
 

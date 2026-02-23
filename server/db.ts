@@ -127,6 +127,24 @@ export async function submitMinigameScore(score: InsertMinigameScore) {
   await db.insert(minigameScores).values(score);
 }
 
+export async function getUserPersonalBests(userId: number) {
+  const db = await getDb();
+  if (!db) return { clog: 0, toss: 0, pipe_panic: 0 };
+  const rows = await db
+    .select({
+      gameId: minigameScores.gameId,
+      bestScore: sql<number>`MAX(${minigameScores.score})`,
+    })
+    .from(minigameScores)
+    .where(eq(minigameScores.userId, userId))
+    .groupBy(minigameScores.gameId);
+  const result: Record<string, number> = { clog: 0, toss: 0, pipe_panic: 0 };
+  for (const row of rows) {
+    result[row.gameId] = row.bestScore;
+  }
+  return result as { clog: number; toss: number; pipe_panic: number };
+}
+
 export async function getMinigameLeaderboard(gameId: string, limit = 50) {
   const db = await getDb();
   if (!db) return [];

@@ -15,6 +15,7 @@ vi.mock("./db", () => ({
   getSessionLeaderboard: vi.fn(),
   submitMinigameScore: vi.fn(),
   getMinigameLeaderboard: vi.fn(),
+  getUserPersonalBests: vi.fn(),
 }));
 
 import * as db from "./db";
@@ -188,5 +189,16 @@ describe("minigames.leaderboard", () => {
     expect(result).toHaveLength(1);
     expect(result[0]?.bestScore).toBe(200);
     expect(db.getMinigameLeaderboard).toHaveBeenCalledWith("toss", 50);
+  });
+});
+
+describe("minigames.personalBests", () => {
+  it("returns personal bests for the authenticated user", async () => {
+    vi.mocked(db.getUserPersonalBests).mockResolvedValue({ clog: 120, toss: 8, pipe_panic: 15 });
+    const { ctx } = createAuthCtx();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.minigames.personalBests();
+    expect(result).toEqual({ clog: 120, toss: 8, pipe_panic: 15 });
+    expect(db.getUserPersonalBests).toHaveBeenCalledWith(1);
   });
 });

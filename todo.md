@@ -37,3 +37,11 @@
 - [x] Build Pipe Panic core mechanics (Flappy Bird-style, turd character, sewer pipes, tap-to-flap, lives, leaderboard)
 - [x] Add Pipe Panic route to App.tsx and nav entry to BottomNav / minigame hub
 - [x] Add "pipe_panic" game ID to minigame score submission on server
+
+## New Features (Round 6)
+- [x] Add personalBest tRPC query to server (returns user's best score per game)
+- [x] Show personal best badge on Clog-A-Mole game over screen (New PB! if beaten)
+- [x] Show personal best badge on Paper Toss game over screen (New PB! if beaten)
+- [x] Show personal best badge on Pipe Panic game over screen (New PB! if beaten)
+- [x] Build Minigames Hub page with cards for all 3 games + personal best scores
+- [x] Add Minigames Hub to BottomNav and App.tsx routes

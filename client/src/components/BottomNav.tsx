@@ -1,9 +1,10 @@
 import { Link, useLocation } from "wouter";
-import { Home, Timer, Trophy, Settings } from "lucide-react";
+import { Home, Timer, Trophy, Settings, Gamepad2 } from "lucide-react";
 
 const navItems = [
   { path: "/dashboard", icon: Home, label: "Home" },
   { path: "/timer", icon: Timer, label: "Gotta Go" },
+  { path: "/minigames", icon: Gamepad2, label: "Games" },
   { path: "/leaderboard", icon: Trophy, label: "Ranks" },
   { path: "/profile", icon: Settings, label: "Profile" },
 ];
