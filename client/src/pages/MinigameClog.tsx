@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { ArrowLeft } from "lucide-react";
-import { trpc } from "@/lib/trpc";
+import { trpc } from "../lib/trpc";
 import { toast } from "sonner";
 
 const TIMER_ACTIVE_KEY = "toilet_timer_active";
