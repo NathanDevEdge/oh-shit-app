@@ -1,8 +1,10 @@
 # 💩 Turd Earnings
 
-> **Track how much you earn on the throne.**
+> *Track how much you earn on the throne.*
 
-Turd Earnings is a fun, social web app that calculates how much money you make while sitting on the toilet — based on your real salary. Compete with friends on the global leaderboard, kill time with built-in minigames, and discover just how valuable your bathroom breaks really are.
+Turd Earnings is a full-stack web app that calculates how much money you make while sitting on the toilet at work, based on your real salary. Compete with friends on a live global leaderboard, kill time with three browser minigames, and discover just how valuable your bathroom breaks really are.
+
+**Live site:** [https://oh-shit-app.manus.space](https://oh-shit-app.manus.space)
 
 ---
 
@@ -16,6 +18,7 @@ Turd Earnings is a fun, social web app that calculates how much money you make w
 - [Tech Stack](#tech-stack)
 - [Local Development](#local-development)
 - [Database Schema](#database-schema)
+- [Project Structure](#project-structure)
 
 ---
 
@@ -25,10 +28,13 @@ Turd Earnings is a fun, social web app that calculates how much money you make w
 |---|---|
 | **Email Auth** | Register and log in with email and password — no third-party sign-in required |
 | **Toilet Timer** | Start a session when you sit down, stop it when you're done — earnings calculated in real time |
-| **Global Leaderboard** | See who earns the most on the throne across all users |
-| **Minigames** | Two games to play while you wait: Clog-A-Mole and Paper Toss |
-| **Minigame Leaderboards** | Separate high-score boards for each minigame |
+| **Session History** | Every session is saved to the database and shown on your Dashboard |
+| **Global Leaderboard** | Compete with all users across toilet earnings and all three minigames |
+| **3 Minigames** | Clog-A-Mole, Paper Toss, and Pipe Panic — all with DB-backed leaderboards |
+| **Personal Best Badges** | Every game over screen shows your PB and flags when you beat it |
+| **Minigames Hub** | A dedicated hub page showing all three games with your personal best on each card |
 | **Persistent Timer** | The toilet timer keeps running even when you navigate to a minigame |
+| **Streak Multipliers** | Clog-A-Mole rewards consecutive hits with 2x, 3x, and 4x score multipliers |
 | **Profile Management** | Update your display name, salary type (hourly/yearly), and salary amount at any time |
 | **Admin Dashboard** | Overview of all users and activity for the app owner |
 
@@ -50,15 +56,19 @@ Click **Create Account** to enter the Throne Room.
 
 ### 2. Start a Toilet Session
 
-Navigate to the **Gotta Go** (Timer) page from the bottom navigation bar. Press **Start Session** when you sit down. The timer will count up in real time and display your earnings as they accumulate based on your salary.
+Navigate to the **Gotta Go** (Timer) page from the bottom navigation bar. Press **Start Session** when you sit down. The timer counts up in real time and displays your earnings as they accumulate based on your salary.
 
-When you're done, press **Stop Session**. Your session is automatically saved to the database and contributes to your leaderboard total.
+When you're done, press **Done — Save Session**. Your session is saved to the database and contributes to your leaderboard total.
 
-> **Tip:** You can navigate away to play a minigame while the timer is running — it will keep going in the background and a banner will remind you it's active.
+> **Tip:** You can navigate away to play a minigame while the timer is running — it keeps going in the background and a live banner on every game page reminds you it's active.
 
-### 3. Check Your Stats
+### 3. Play a Minigame
 
-The **Home** (Dashboard) page shows your total lifetime earnings, total time spent on the throne, number of sessions, and a history of your recent sessions.
+While the timer is running, tap **🎮 Play a Minigame** on the Timer page to go to the Minigames Hub. Pick a game — your toilet timer keeps running in the background. Scores are saved to the leaderboard automatically when the game ends.
+
+### 4. Check Your Stats
+
+The **Home** (Dashboard) page shows your total lifetime earnings, total time on the throne, number of sessions, and a history of your last 10 sessions.
 
 ---
 
@@ -66,80 +76,92 @@ The **Home** (Dashboard) page shows your total lifetime earnings, total time spe
 
 ### Home (Dashboard)
 
-Your personal stats hub. Displays:
-
-- Total earnings across all sessions
-- Total time spent on the throne
-- Number of sessions recorded
-- A scrollable list of recent sessions with date, duration, and earnings per session
+Your personal stats hub. Displays total earnings, total time on the throne, session count, and a scrollable list of recent sessions with date, duration, and earnings per session.
 
 ### Gotta Go (Timer)
 
-The core feature of the app. A large timer counts up from zero. Your per-second earnings rate is calculated from your salary and displayed live. Buttons to start and stop the session are front and centre. Quick-access buttons to both minigames are also available here so you can jump in without stopping the timer.
+The core feature of the app. A large timer counts up from zero. Your per-second earnings rate is calculated from your salary and displayed live. A **🎮 Play a Minigame** button is available while the timer is running, linking to the Minigames Hub.
+
+### Games (Minigames Hub)
+
+A hub page showing all three minigames as interactive cards. Each card displays the game name, a short description, a gameplay tip, and your personal best score. Tap any card to jump straight into that game.
 
 ### Ranks (Leaderboard)
 
-Three tabs of competitive glory:
+Four tabs of competitive glory:
 
 - **Toilet Timer** — ranked by total lifetime earnings across all sessions
-- **Clog-A-Mole** — ranked by personal best score in the whack-a-mole game
-- **Paper Toss** — ranked by personal best score in the toss game
+- **Clog-A-Mole** — ranked by personal best score
+- **Paper Toss** — ranked by personal best score
+- **Pipe Panic** — ranked by personal best score
 
 ### Profile
 
-Update your account details at any time:
-
-- Change your display name
-- Switch between hourly and yearly salary
-- Update your salary amount
-
-Changes take effect immediately and are reflected in future session calculations.
+Update your display name, salary type (hourly or yearly), and salary amount. Changes take effect immediately on the timer.
 
 ### Admin Dashboard
 
-Accessible at `/admin`. Provides the app owner with an overview of registered users and overall activity. Standard users are not shown this page in the navigation.
+Accessible at `/admin`. Provides the app owner with an overview of registered users and activity. Not shown in the navigation for standard users.
 
 ---
 
 ## Minigames
 
-Both minigames are accessible from the Timer page. The toilet timer continues running in the background while you play, and a live banner at the top of each game shows the current elapsed time.
+All three minigames are accessible from the **Games** tab in the bottom navigation or from the Timer page. The toilet timer continues running in the background while you play, and a live banner shows the current elapsed time on every game page.
 
-### Clog-A-Mole
+Every game over screen shows:
+- Your final score
+- A gold **"🏆 New Personal Best!"** badge if you beat your previous best
+- Your previous best score (if you didn't beat it)
+- Buttons to **Play Again**, **View Leaderboard**, or **Back to Timer**
 
-A whack-a-mole style game where you tap or click on the targets as they appear. The game gets progressively faster as your score increases. Your best score is saved to the leaderboard automatically when the game ends.
+### 🪠 Clog-A-Mole
 
-### Paper Toss
+A whack-a-mole style game on a 3×3 toilet grid. Tap the poops before they disappear. Avoid the rubber ducks — hitting one costs a life. Build consecutive hit streaks to unlock score multipliers:
+
+| Streak | Multiplier |
+|--------|-----------|
+| 4 hits in a row | 2x |
+| 7 hits in a row | 3x |
+| 10 hits in a row | 4x |
+
+Missing a poop or hitting a duck resets the streak to 1x. The game speeds up progressively as your score climbs. You have 3 lives (shown as 🧻 icons).
+
+### 🧻 Paper Toss
 
 A physics-based drag-to-throw game inspired by the classic mobile game.
 
 **How to play:**
 
 1. Press **Start Game** to begin.
-2. **Click and drag** the paper ball (or use your finger on mobile) in the direction you want to throw — drag away from the toilet to aim toward it.
+2. **Click and drag** the paper ball (or use your finger on mobile) toward the toilet at the top of the screen.
 3. Release to launch. A dotted trajectory line shows your predicted path as you drag.
 4. Land the ball in the toilet bowl to score a point.
-5. Miss three times and the game is over — your score is submitted to the leaderboard.
+5. Miss three times and the game is over.
 
-**Wind system:** After each successful toss, the wind changes direction and strength. The wind indicator at the top shows the current conditions:
+**Wind system:** After each successful toss, the wind changes direction and strength. The wind indicator shows current conditions:
 
-| Label | Strength | Effect |
-|---|---|---|
-| Calm | 0–0.3 | Negligible drift |
-| Breezy | 0.3–1.2 | Slight curve |
-| Windy | 1.2–2.2 | Noticeable push — aim to compensate |
-| Stormy | 2.2+ | Strong drift — shown in red |
+| Label | Effect |
+|---|---|
+| Calm | Negligible drift |
+| Breezy | Slight curve |
+| Windy | Noticeable push — aim to compensate |
+| Stormy | Strong drift — shown in red |
 
-**Progressive difficulty:** The maximum possible wind strength increases with your score, making higher scores genuinely harder to achieve.
+Wind intensity increases progressively with your score, making higher scores genuinely harder to achieve.
+
+### 💩 Pipe Panic
+
+A Flappy Bird-style game set in a sewer. Tap, click, or press Space/↑ to flap your turd through an endless series of sewer pipes. The pipes get faster and spawn more frequently as your score climbs. You have 3 lives — hit a pipe and you lose one. Survive as long as possible.
 
 ---
 
 ## Leaderboards
 
-All leaderboard data is stored in the database and is shared across all users in real time. There is no need to be on the same device or browser — everyone competes together.
+All leaderboard data is stored in the database and shared across all users in real time. No need to be on the same device or browser — everyone competes together.
 
 - **Toilet Timer leaderboard** aggregates total earnings across all saved sessions per user.
-- **Minigame leaderboards** track each user's personal best score for that game. Only the best score per user is shown — not every attempt.
+- **Minigame leaderboards** track each user's all-time best score per game. Only the highest score per user is shown — not every attempt.
 
 ---
 
@@ -147,12 +169,16 @@ All leaderboard data is stored in the database and is shared across all users in
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 19, TypeScript, Tailwind CSS 4, Wouter (routing) |
-| Backend | Node.js, Express 4, tRPC 11 |
-| Database | MySQL (via Drizzle ORM) |
-| Auth | Custom email/password auth with JWT session cookies (bcryptjs + jose) |
+| Frontend | React 19 + TypeScript + Vite |
+| Styling | Tailwind CSS 4 + custom CSS variables |
+| Routing | Wouter |
+| API | tRPC 11 (end-to-end type-safe) |
+| Backend | Express 4 + Node.js |
+| Database | MySQL / TiDB via Drizzle ORM |
+| Auth | Custom email/password with JWT session cookies (bcryptjs + jose) |
 | UI Components | shadcn/ui, Radix UI, Lucide React |
 | Minigame Rendering | HTML5 Canvas API |
+| Testing | Vitest (12 tests) |
 | Hosting | Manus (full-stack, persistent) |
 
 ---
@@ -163,7 +189,7 @@ All leaderboard data is stored in the database and is shared across all users in
 
 - Node.js 22+
 - pnpm 10+
-- A MySQL database (connection string in `.env`)
+- A MySQL or TiDB database
 
 ### Setup
 
@@ -176,8 +202,8 @@ cd oh-shit-app
 pnpm install
 
 # Set up environment variables
-# Add DATABASE_URL and JWT_SECRET to your environment
-# (see .env.example or platform secrets for reference)
+# You need: DATABASE_URL, JWT_SECRET
+# See .env.example or the Manus Secrets panel for reference
 
 # Push the database schema
 pnpm db:push
@@ -195,21 +221,108 @@ The app will be available at `http://localhost:3000`.
 | `pnpm dev` | Start the development server with hot reload |
 | `pnpm build` | Build the production bundle |
 | `pnpm start` | Run the production build |
-| `pnpm test` | Run all vitest unit tests |
-| `pnpm db:push` | Generate and run database migrations |
+| `pnpm test` | Run all Vitest unit tests |
+| `pnpm db:push` | Generate and apply database migrations |
+| `pnpm check` | TypeScript type check (no emit) |
+| `pnpm format` | Format all files with Prettier |
 
 ---
 
 ## Database Schema
 
-The app uses three database tables:
+### `users`
+Stores registered accounts.
 
-**`users`** — stores registered accounts with hashed passwords, display name, salary info (type and amount), and role (`user` or `admin`).
+| Column | Type | Description |
+|--------|------|-------------|
+| id | int PK | Auto-increment primary key |
+| email | varchar | Unique email address |
+| passwordHash | text | bcrypt-hashed password |
+| name | text | Display name shown on leaderboard |
+| salaryType | enum | `hourly` or `yearly` |
+| salaryAmount | decimal | Salary value |
+| role | enum | `user` or `admin` |
+| createdAt | timestamp | Account creation time |
+| updatedAt | timestamp | Last update time |
+| lastSignedIn | timestamp | Last login time |
 
-**`toilet_sessions`** — records each completed toilet session with duration in seconds and earnings amount, linked to a user by ID.
+### `toilet_sessions`
+Records each completed toilet session.
 
-**`minigame_scores`** — stores every score submission per game per user. The leaderboard query uses `MAX(score)` to show only each user's personal best per game.
+| Column | Type | Description |
+|--------|------|-------------|
+| id | int PK | Auto-increment primary key |
+| userId | int FK | References `users.id` |
+| durationSeconds | int | Session length in seconds |
+| earningsAmount | decimal | Money earned during session |
+| createdAt | timestamp | When the session was saved |
+
+### `minigame_scores`
+Stores every minigame score submission.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | int PK | Auto-increment primary key |
+| userId | int FK | References `users.id` |
+| gameId | enum | `clog`, `toss`, or `pipe_panic` |
+| score | int | Score achieved |
+| createdAt | timestamp | When the score was submitted |
 
 ---
 
-*Built with 💩 and a lot of free time.*
+## Project Structure
+
+```
+client/
+  src/
+    pages/              ← All page components
+      Login.tsx         ← Register / sign-in screen
+      Dashboard.tsx     ← Personal stats and session history
+      Timer.tsx         ← Toilet timer with real-time earnings
+      MinigamesHub.tsx  ← Hub page showing all 3 games + personal bests
+      MinigameClog.tsx  ← Clog-A-Mole canvas game
+      MinigameToss.tsx  ← Paper Toss canvas game
+      MinigamePipePanic.tsx ← Pipe Panic canvas game
+      Leaderboard.tsx   ← 4-tab leaderboard
+      Profile.tsx       ← Edit name and salary
+      AdminDashboard.tsx← Admin-only user overview
+    components/
+      BottomNav.tsx     ← 5-tab bottom navigation bar
+    lib/trpc.ts         ← tRPC client binding
+    App.tsx             ← Routes and layout
+    index.css           ← Global styles and CSS variables
+drizzle/
+  schema.ts             ← Database table definitions
+  migrations/           ← Auto-generated migration files
+server/
+  routers.ts            ← All tRPC procedures (auth, profile, sessions, minigames)
+  db.ts                 ← Database query helpers
+  features.test.ts      ← Vitest tests for all procedures
+  _core/                ← Framework plumbing (OAuth, context, Vite bridge)
+shared/
+  const.ts              ← Shared constants
+```
+
+---
+
+## API Procedures (tRPC)
+
+| Namespace | Procedure | Auth | Description |
+|-----------|-----------|------|-------------|
+| `auth` | `register` | Public | Create account with email, password, name, salary |
+| `auth` | `login` | Public | Sign in and receive session cookie |
+| `auth` | `logout` | Public | Clear session cookie |
+| `auth` | `me` | Public | Get current user from session |
+| `profile` | `get` | Protected | Get current user's profile |
+| `profile` | `updateSalary` | Protected | Update salary type and amount |
+| `profile` | `updateName` | Protected | Update display name |
+| `sessions` | `save` | Protected | Save a completed toilet session |
+| `sessions` | `myHistory` | Protected | Get last 10 sessions for current user |
+| `sessions` | `leaderboard` | Public | Get all-time earnings leaderboard |
+| `minigames` | `submitScore` | Protected | Submit a minigame score |
+| `minigames` | `leaderboard` | Public | Get top scores for a specific game |
+| `minigames` | `personalBests` | Protected | Get current user's best score per game |
+
+---
+
+*Built with 💩 and a healthy disregard for productivity.*
