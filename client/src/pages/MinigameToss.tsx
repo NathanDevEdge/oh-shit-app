@@ -43,6 +43,7 @@ export default function MinigameToss() {
   const [message, setMessage] = useState("");
   const [gameOver, setGameOver] = useState(false);
   const [lives, setLives] = useState(3);
+  const [, setParticleTick] = useState(0);
 
   // Timer overlay
   const [timerRunning, setTimerRunning] = useState(false);
@@ -57,6 +58,7 @@ export default function MinigameToss() {
   const streakRef = useRef(0);
   const windRef = useRef(0);
   const livesRef = useRef(3);
+  const splashRef = useRef<Array<{ x: number, y: number, vx: number, vy: number, life: number }>>([]);
   const animFrameRef = useRef<number | null>(null);
   const canvasSizeRef = useRef({ w: 360, h: 560 });
 
@@ -68,7 +70,7 @@ export default function MinigameToss() {
   // ─── Toilet position (top-center area) ──────────────────────────────────────
   const getToiletPos = useCallback((): Vec2 => {
     const { w } = canvasSizeRef.current;
-    return { x: w / 2, y: 110 };
+    return { x: w / 2, y: 140 };
   }, []);
 
   // ─── Ball start position (bottom-center) ────────────────────────────────────
@@ -140,78 +142,131 @@ export default function MinigameToss() {
     const toilet = getToiletPos();
     const ball = ballRef.current;
 
-    // Background
     ctx.clearRect(0, 0, w, h);
 
-    // Draw toilet bowl
-    const tw = TOILET_WIDTH;
-    const th = TOILET_HEIGHT;
-    const tx = toilet.x - tw / 2;
-    const ty = toilet.y - th / 2;
+    // 1. Draw Bathroom Tiles (Background)
+    const tileSize = 60;
+    const tileColor1 = "#2c3e50";
+    const tileColor2 = "#34495e";
 
-    // Toilet tank (back)
-    ctx.fillStyle = "#e8e8e8";
-    ctx.beginPath();
-    ctx.roundRect(tx + 10, ty - 28, tw - 20, 28, 6);
-    ctx.fill();
-    ctx.strokeStyle = "#bbb";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    // Floor (Perspective-ish)
+    const horizon = h * 0.4;
+    for (let y = horizon; y < h; y += tileSize / 2) {
+      for (let x = 0; x < w; x += tileSize) {
+        ctx.fillStyle = (Math.floor(x / tileSize) + Math.floor(y / (tileSize / 2))) % 2 === 0 ? tileColor1 : tileColor2;
+        ctx.fillRect(x, y, tileSize, tileSize / 2);
+      }
+    }
 
-    // Toilet seat rim
-    ctx.fillStyle = "#f0f0f0";
-    ctx.beginPath();
-    ctx.ellipse(toilet.x, ty + th * 0.3, tw / 2 + 4, th * 0.22, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#ccc";
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    // Wall (Simple top part)
+    ctx.fillStyle = "#16212d";
+    ctx.fillRect(0, 0, w, horizon);
 
-    // Toilet bowl (opening — target zone)
-    ctx.fillStyle = "#1a6fa8";
-    ctx.beginPath();
-    ctx.ellipse(toilet.x, ty + th * 0.3, tw / 2 - 6, th * 0.16, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // Grout lines
+    ctx.strokeStyle = "rgba(0,0,0,0.2)";
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= w; x += tileSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, horizon);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
+    for (let y = horizon; y <= h; y += tileSize / 2) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
 
-    // Water shimmer
-    ctx.fillStyle = "rgba(100,180,255,0.35)";
-    ctx.beginPath();
-    ctx.ellipse(toilet.x, ty + th * 0.3, tw / 2 - 10, th * 0.1, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // 2. Draw Window (Draft Source)
+    const winW = 100;
+    const winH = 80;
+    const winX = windRef.current > 0 ? -20 : w - winW + 20; // Window on the side the wind is blowing FROM
+    const winY = 40;
 
-    // Toilet base
-    ctx.fillStyle = "#e8e8e8";
-    ctx.beginPath();
-    ctx.roundRect(tx + 5, ty + th * 0.45, tw - 10, th * 0.55, [0, 0, 10, 10]);
-    ctx.fill();
-    ctx.strokeStyle = "#bbb";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    // Window frame
+    ctx.fillStyle = "#2c3e50";
+    ctx.fillRect(winX, winY, winW, winH);
+    ctx.strokeStyle = "#4a627a";
+    ctx.strokeRect(winX, winY, winW, winH);
 
-    // Wind arrow indicator
-    if (windRef.current !== 0) {
-      const arrowX = w / 2;
-      const arrowY = toilet.y + th / 2 + 28;
-      const arrowLen = Math.min(Math.abs(windRef.current) * 22, 60);
-      const dir = windRef.current > 0 ? 1 : -1;
+    // Window panes (Glowing slightly)
+    ctx.fillStyle = "rgba(135, 206, 235, 0.2)";
+    ctx.fillRect(winX + 8, winY + 8, winW / 2 - 12, winH / 2 - 12);
+    ctx.fillRect(winX + winW / 2 + 4, winY + 8, winW / 2 - 12, winH / 2 - 12);
+    ctx.fillRect(winX + 8, winY + winH / 2 + 4, winW / 2 - 12, winH / 2 - 12);
+    ctx.fillRect(winX + winW / 2 + 4, winY + winH / 2 + 4, winW / 2 - 12, winH / 2 - 12);
+
+    // 3. Draft Visuals (Moving Air Lines)
+    if (Math.abs(windRef.current) > 0.2) {
+      const airCount = Math.floor(Math.abs(windRef.current) * 8);
       ctx.save();
-      ctx.strokeStyle = Math.abs(windRef.current) > 2 ? "#ff6b6b" : "#f5c518";
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.moveTo(arrowX - dir * arrowLen, arrowY);
-      ctx.lineTo(arrowX + dir * arrowLen, arrowY);
-      ctx.stroke();
-      // Arrowhead
-      ctx.beginPath();
-      ctx.moveTo(arrowX + dir * arrowLen, arrowY);
-      ctx.lineTo(arrowX + dir * (arrowLen - 10), arrowY - 7);
-      ctx.moveTo(arrowX + dir * arrowLen, arrowY);
-      ctx.lineTo(arrowX + dir * (arrowLen - 10), arrowY + 7);
-      ctx.stroke();
+      ctx.strokeStyle = "rgba(255,255,255,0.15)";
+      ctx.lineWidth = 1;
+      const time = Date.now() / 200;
+      for (let i = 0; i < airCount; i++) {
+        const offset = (i * 40 + time * 50 * Math.sign(windRef.current)) % w;
+        const x = windRef.current > 0 ? offset : w - offset;
+        const y = 50 + (i * 30) % (h - 100);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 30 * Math.sign(windRef.current), y);
+        ctx.stroke();
+      }
       ctx.restore();
     }
 
-    // Drag trajectory preview
+    // 4. Draw Toilet (Better shading)
+    const tw = TOILET_WIDTH + 10;
+    const th = TOILET_HEIGHT + 10;
+    const tx = toilet.x - tw / 2;
+    const ty = toilet.y - th / 2;
+
+    // Base Shadow
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.beginPath();
+    ctx.ellipse(toilet.x, ty + th, tw / 2, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Toilet tank (back)
+    const gradientTank = ctx.createLinearGradient(tx, ty - 30, tx + tw, ty);
+    gradientTank.addColorStop(0, "#ffffff");
+    gradientTank.addColorStop(1, "#d0d0d0");
+    ctx.fillStyle = gradientTank;
+    ctx.beginPath();
+    ctx.roundRect(tx + 15, ty - 35, tw - 30, 35, 8);
+    ctx.fill();
+    ctx.strokeStyle = "#999";
+    ctx.stroke();
+
+    // Toilet seat rim
+    const gradientRim = ctx.createRadialGradient(toilet.x, ty + th * 0.3, 0, toilet.x, ty + th * 0.3, tw / 2);
+    gradientRim.addColorStop(0, "#ffffff");
+    gradientRim.addColorStop(1, "#e0e0e0");
+    ctx.fillStyle = gradientRim;
+    ctx.beginPath();
+    ctx.ellipse(toilet.x, ty + th * 0.3, tw / 2 + 6, th * 0.25, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#bbb";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Bowl & Water
+    ctx.fillStyle = "#2c3e50"; // Dark bowl depth
+    ctx.beginPath();
+    ctx.ellipse(toilet.x, ty + th * 0.3, tw / 2 - 4, th * 0.18, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Water Shimmer
+    const gradientWater = ctx.createRadialGradient(toilet.x, ty + th * 0.3, 5, toilet.x, ty + th * 0.3, tw / 2 - 8);
+    gradientWater.addColorStop(0, "#4a90e2");
+    gradientWater.addColorStop(1, "#1a6fa8");
+    ctx.fillStyle = gradientWater;
+    ctx.beginPath();
+    ctx.ellipse(toilet.x, ty + th * 0.3, tw / 2 - 8, th * 0.14, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 5. Drag trajectory preview
     if (gameStateRef.current === "dragging" && dragStartRef.current && dragCurrentRef.current && ball) {
       const dx = dragStartRef.current.x - dragCurrentRef.current.x;
       const dy = dragStartRef.current.y - dragCurrentRef.current.y;
@@ -221,16 +276,15 @@ export default function MinigameToss() {
       const vy = dist > 0 ? (dy / dist) * speed : 0;
 
       ctx.save();
-      ctx.setLineDash([5, 8]);
-      ctx.strokeStyle = "rgba(245,197,24,0.5)";
-      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 6]);
+      ctx.strokeStyle = "rgba(245,197,24,0.4)";
       ctx.beginPath();
       let px = ball.pos.x;
       let py = ball.pos.y;
       let pvx = vx;
       let pvy = vy;
       ctx.moveTo(px, py);
-      for (let i = 0; i < 28; i++) {
+      for (let i = 0; i < 30; i++) {
         px += pvx;
         py += pvy;
         pvy += GRAVITY;
@@ -239,54 +293,79 @@ export default function MinigameToss() {
         if (py < 0 || py > h) break;
       }
       ctx.stroke();
-      ctx.setLineDash([]);
       ctx.restore();
     }
 
-    // Ball
+    // 6. Ball (Toilet Paper with trailing bit)
     if (ball) {
       ctx.save();
       ctx.translate(ball.pos.x, ball.pos.y);
       ctx.rotate(ball.rotation);
+
       // Shadow
-      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.fillStyle = "rgba(0,0,0,0.15)";
       ctx.beginPath();
-      ctx.ellipse(3, 4, BALL_RADIUS, BALL_RADIUS * 0.6, 0, 0, Math.PI * 2);
+      ctx.ellipse(3, 8, BALL_RADIUS, BALL_RADIUS * 0.4, 0, 0, Math.PI * 2);
       ctx.fill();
-      // Ball body
-      ctx.fillStyle = "#f5f0e8";
+
+      // Trailing paper bit (flappy)
+      const flapTime = Date.now() / 150;
+      const flapX = Math.sin(flapTime) * 4;
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.moveTo(-BALL_RADIUS, 0);
+      ctx.quadraticCurveTo(-BALL_RADIUS - 10 + flapX, 10, -BALL_RADIUS - 5, 20);
+      ctx.lineTo(-BALL_RADIUS + 5, 18);
+      ctx.closePath();
+      ctx.fill();
+
+      // Main Roll
+      const gradientRoll = ctx.createLinearGradient(-BALL_RADIUS, -BALL_RADIUS, BALL_RADIUS, BALL_RADIUS);
+      gradientRoll.addColorStop(0, "#ffffff");
+      gradientRoll.addColorStop(1, "#f0f0f0");
+      ctx.fillStyle = gradientRoll;
       ctx.beginPath();
       ctx.arc(0, 0, BALL_RADIUS, 0, Math.PI * 2);
       ctx.fill();
-      // Toilet paper texture lines
-      ctx.strokeStyle = "rgba(180,160,130,0.6)";
-      ctx.lineWidth = 1.2;
+
+      // Roll hole
+      ctx.fillStyle = "#ddd";
+      ctx.beginPath();
+      ctx.ellipse(0, 0, BALL_RADIUS * 0.2, BALL_RADIUS * 0.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Texture lines
+      ctx.strokeStyle = "rgba(0,0,0,0.05)";
+      ctx.lineWidth = 1;
       for (let i = -1; i <= 1; i++) {
         ctx.beginPath();
-        ctx.moveTo(-BALL_RADIUS + 4, i * 6);
-        ctx.lineTo(BALL_RADIUS - 4, i * 6);
+        ctx.moveTo(-BALL_RADIUS + 4, i * 8);
+        ctx.lineTo(BALL_RADIUS - 4, i * 8);
         ctx.stroke();
       }
-      // Highlight
-      ctx.fillStyle = "rgba(255,255,255,0.4)";
-      ctx.beginPath();
-      ctx.arc(-5, -5, 6, 0, Math.PI * 2);
-      ctx.fill();
+
       ctx.restore();
     }
 
-    // Drag handle indicator at ball position
+    // 7. Interactive touch area
     if (gameStateRef.current === "idle" && ball) {
       ctx.save();
-      ctx.strokeStyle = "rgba(245,197,24,0.6)";
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([4, 6]);
+      ctx.strokeStyle = "rgba(245,197,24,0.4)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
       ctx.beginPath();
-      ctx.arc(ball.pos.x, ball.pos.y, BALL_RADIUS + 10, 0, Math.PI * 2);
+      ctx.arc(ball.pos.x, ball.pos.y, BALL_RADIUS + 15, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.setLineDash([]);
       ctx.restore();
     }
+
+    // 8. Splash Particles
+    splashRef.current.forEach((p) => {
+      ctx.fillStyle = `rgba(135, 206, 235, ${p.life})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
   }, [getToiletPos]);
 
   // ─── Physics update loop ─────────────────────────────────────────────────────
@@ -320,6 +399,17 @@ export default function MinigameToss() {
       streakRef.current = newStreak;
       setScore(newScore);
       setStreak(newStreak);
+
+      // Create splash particles
+      for (let i = 0; i < 12; i++) {
+        splashRef.current.push({
+          x: toilet.x + (Math.random() * 20 - 10),
+          y: toilet.y + TOILET_HEIGHT * 0.3 - 20,
+          vx: Math.random() * 4 - 2,
+          vy: -Math.random() * 5 - 2,
+          life: 1.0
+        });
+      }
 
       const msgs = ["Swish! 🎯", "In the bowl! 💩", "Perfect shot! ✨", "Nailed it! 🏆", "Flush! 🚽"];
       const streakMsgs = newStreak >= 3 ? [`${newStreak}x STREAK! 🔥`, `ON FIRE! 🔥x${newStreak}`] : msgs;
@@ -357,6 +447,17 @@ export default function MinigameToss() {
   useEffect(() => {
     const loop = () => {
       updatePhysics();
+
+      // Update particles
+      splashRef.current.forEach((p, i) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += GRAVITY * 0.5;
+        p.life -= 0.02;
+      });
+      splashRef.current = splashRef.current.filter(p => p.life > 0);
+      if (splashRef.current.length > 0) setParticleTick(t => t + 1);
+
       draw();
       animFrameRef.current = requestAnimationFrame(loop);
     };
