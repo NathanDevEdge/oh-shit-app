@@ -660,22 +660,51 @@ export default function MinigameToss() {
         {gameOver && (
           <div style={{
             position: "absolute", inset: 0, display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.82)",
-            borderRadius: "16px", gap: "1rem",
+            alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.88)",
+            borderRadius: "16px", gap: "0.75rem", padding: "1.5rem",
           }}>
-            <div style={{ fontSize: "3rem" }}>💩</div>
-            <div className="gold-text" style={{ fontSize: "1.8rem", fontWeight: 800 }}>Game Over</div>
-            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "1rem" }}>Final Score: <strong style={{ color: "#f5c518" }}>{score}</strong></div>
+            <div style={{ fontSize: "3.5rem" }}>💩</div>
+            <div className="gold-text" style={{ fontSize: "2rem", fontWeight: 800, margin: 0 }}>Game Over!</div>
+            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.85rem", marginBottom: "0.25rem" }}>You ran out of paper.</div>
+            <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(245,197,24,0.2)", borderRadius: "12px", padding: "0.75rem 2rem", textAlign: "center", marginBottom: "0.5rem" }}>
+              <div style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "2px", opacity: 0.5, marginBottom: "4px" }}>Final Score</div>
+              <div style={{ fontSize: "2.5rem", fontWeight: 800, color: "#f5c518", lineHeight: 1 }}>{score}</div>
+              <div style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.4)", marginTop: "4px" }}>
+                {score >= 20 ? "🏆 Incredible aim!" : score >= 10 ? "⭐ Nice shooting!" : "Keep practising!"}
+              </div>
+            </div>
             <button
               onClick={startGame}
               style={{
-                padding: "12px 28px", borderRadius: "12px", border: "none",
-                background: "linear-gradient(135deg, #f5c518, #e8a000)",
-                color: "#1a0a00", fontFamily: "Outfit, sans-serif", fontWeight: 700,
-                fontSize: "1rem", cursor: "pointer",
+                width: "100%", padding: "12px 24px", borderRadius: "12px", border: "none",
+                background: "linear-gradient(135deg, #ffd700, #b8860b)",
+                color: "#0b0710", fontFamily: "Outfit, sans-serif", fontWeight: 800,
+                fontSize: "1rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
               }}
             >
-              Play Again
+              🔄 Play Again
+            </button>
+            <button
+              onClick={() => navigate("/leaderboard")}
+              style={{
+                width: "100%", padding: "12px 24px", borderRadius: "12px",
+                border: "2px solid rgba(245,197,24,0.4)", background: "rgba(245,197,24,0.08)",
+                color: "#f5c518", fontFamily: "Outfit, sans-serif", fontWeight: 700,
+                fontSize: "1rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+              }}
+            >
+              🏆 View Leaderboard
+            </button>
+            <button
+              onClick={() => navigate("/timer")}
+              style={{
+                width: "100%", padding: "12px 24px", borderRadius: "12px",
+                border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)",
+                color: "rgba(255,255,255,0.7)", fontFamily: "Outfit, sans-serif", fontWeight: 700,
+                fontSize: "1rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+              }}
+            >
+              ← Back to Timer
             </button>
           </div>
         )}

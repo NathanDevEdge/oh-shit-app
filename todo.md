@@ -27,3 +27,8 @@
 - [x] Add display name field to registration form (required at signup)
 - [x] Rebuild Paper Toss as physics drag-to-throw game (toilet target, wind, progressive difficulty)
 - [x] Fix Paper Toss: larger grab hitbox + ensure throw always has enough power to reach toilet
+
+## New Features (Round 4)
+- [x] Add streak multiplier to Clog-A-Mole (consecutive hits = 2x/3x score)
+- [x] Add game over screen to Clog-A-Mole (Play Again, View Leaderboard, Back to Timer)
+- [x] Add game over screen to Paper Toss (Play Again, View Leaderboard, Back to Timer)
